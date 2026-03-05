@@ -1,0 +1,57 @@
+---
+description: PNN Spring Boot 백엔드 컨벤션 및 API 명세
+globs: backend/**
+alwaysApply: false
+---
+
+# Spring Boot Backend (PNN)
+
+## 스택
+
+| 항목 | 값 |
+|------|-----|
+| Spring Boot | 3.5.11 |
+| Java | 17 |
+| Build | Gradle (Kotlin DSL), Wrapper 사용 |
+| HTTP Client | RestClient (Spring 6.1+) — Python 호출 시 Raw HTTP |
+| ORM | Spring Data JPA + Hibernate |
+| DB | PostgreSQL (pnn-db) |
+| 인증 | Spring Security + JWT |
+
+## Rule-based 1차 필터
+
+```
+[처방약 성분] × [영양제 성분] → interaction_rules 테이블 조회
+  ├─ 매칭 있음 → 즉시 결과 반환 (SAFE/CAUTION/WARNING/SYNERGY)
+  └─ 매칭 없음 or 복합 판단 필요 → Python AI 서버로 2차 분석 전달
+```
+
+- `interaction_rules`: drug_ingredient, nutrient, level, description, action
+- 확정적 금기 조합은 LLM 호출 없이 처리 → 비용·속도 절감
+
+## 처방약 검색 API (낱알식별)
+
+검색 조건: 모양, 색상, 각인, 이니셜, 분할선, 제형 → `drugs` 테이블 조회 → 후보 목록 반환.
+
+## Spring → Python API (RestClient 호출)
+
+| 엔드포인트 | 용도 | 타임아웃 |
+|------------|------|----------|
+| `POST /api/ai/ocr/extract` | 영양성분표 이미지 → JSON 정형화 | 30초 |
+| `POST /api/ai/interaction/analyze` | Case A 심층 상호작용 분석 | 15초 |
+| `POST /api/ai/recommendation/safe-nutrients` | Case B 안전 영양 성분 추천 | 15초 |
+| `POST /api/ai/supplement/match` | 영양제 제품명 매칭 | 10초 |
+
+- Python 서버 URL은 환경변수 또는 application.properties로 관리
+- 재시도: 최대 2회, 지수 백오프 (1초, 2초)
+- fallback: Python 장애 시 1차 룰 결과 또는 "일시적 오류" 안내
+
+## 패키지 구조
+
+- `com.pnn.backend` — 메인 애플리케이션
+- `com.pnn.backend.config` — Security, RestClient 등 설정
+- `com.pnn.backend.domain` — 엔티티
+- `com.pnn.backend.repository` — JPA Repository
+- `com.pnn.backend.service` — 비즈니스 로직 (1차 필터 포함)
+- `com.pnn.backend.controller` — REST API
+- `com.pnn.backend.client` — Python AI 서버 RestClient

@@ -1,0 +1,142 @@
+---
+description: PNN Python AI 서버 컨벤션 및 파이프라인 명세
+globs: ai-server/**
+alwaysApply: false
+---
+
+# Python AI Server (PNN)
+
+## 스택
+
+| 항목 | 값 |
+|------|-----|
+| Framework | FastAPI (추천, 미확정) |
+| Python | 3.14.2 (로컬 확인) |
+| LLM | OpenAI GPT-4o (via openai SDK) |
+| OCR | Google Cloud Vision API |
+| Embedding | text-embedding-3-small (1536) 또는 text-embedding-3-large (3072) — 미확정 |
+| Vector Search | psycopg + pgvector |
+
+## 진입점
+
+Spring Boot에서만 호출되는 내부망 전용 서버. 외부 클라이언트 직접 접근 금지.
+
+## OCR 파이프라인 (`POST /api/ai/ocr/extract`)
+
+```
+이미지 수신 → Google Cloud Vision API (텍스트 추출)
+  → GPT-4o (Raw Text → 정형 JSON 변환)
+  → 정형화 결과 반환
+```
+
+- Content-Type: `multipart/form-data`
+- 입력: `image` (file) 영양성분표 이미지
+- 출력:
+
+```json
+{
+  "product_name": "string | null",
+  "raw_text": "string",
+  "nutrients": [
+    { "name": "string", "amount": "number", "unit": "string", "daily_value_pct": "number" }
+  ],
+  "confidence": 0.95
+}
+```
+
+## RAG 파이프라인 — 상호작용 분석 (`POST /api/ai/interaction/analyze`)
+
+```
+쿼리 임베딩 생성 → pgvector 유사도 검색 (knowledge_embeddings)
+  → 상위 k개 문서 컨텍스트 구성
+  → LLM에게 컨텍스트 + 약물/영양제 정보 전달
+  → 분석 결과 반환
+```
+
+- 입력:
+
+```json
+{
+  "drug": { "id": "string", "name": "string", "ingredients": ["string"] },
+  "supplements": [
+    { "name": "string", "nutrients": [{ "name": "string", "amount": "number", "unit": "string" }] }
+  ]
+}
+```
+
+- 출력:
+
+```json
+{
+  "interactions": [
+    {
+      "nutrient": "string",
+      "drug_ingredient": "string",
+      "level": "SAFE | CAUTION | WARNING | SYNERGY",
+      "description": "string",
+      "action": "string",
+      "sources": ["string"]
+    }
+  ]
+}
+```
+
+## RAG 파이프라인 — 안전 영양 성분 추천 (`POST /api/ai/recommendation/safe-nutrients`)
+
+- 입력:
+
+```json
+{
+  "drugs": [
+    { "id": "string", "name": "string", "ingredients": ["string"] }
+  ],
+  "contraindicated_nutrients": [
+    { "nutrient": "string", "level": "CAUTION | WARNING", "reason": "string" }
+  ]
+}
+```
+
+- 출력:
+
+```json
+{
+  "warnings": [
+    { "nutrient": "string", "reason": "string", "level": "WARNING | CAUTION" }
+  ],
+  "recommendations": [
+    { "nutrient": "string", "reason": "string", "priority": "HIGH | MEDIUM | LOW", "sources": ["string"] }
+  ]
+}
+```
+
+- 금기 성분(`contraindicated_nutrients`)은 Spring이 1차 필터로 추출하여 전달
+
+## 영양제 제품명 매칭 (`POST /api/ai/supplement/match`)
+
+- 입력:
+
+```json
+{
+  "query": "string",
+  "query_type": "TEXT | OCR"
+}
+```
+
+- 출력:
+
+```json
+{
+  "candidates": [
+    { "name": "string", "brand": "string", "confidence": "number" }
+  ]
+}
+```
+
+## 패키지 구조
+
+- `app/` — FastAPI 애플리케이션 루트
+- `app/api/` — 라우터 (ocr, interaction, recommendation, supplement)
+- `app/core/` — 설정, 의존성, OpenAI/Vision 클라이언트
+- `app/services/` — 비즈니스 로직 (OCR, RAG, 매칭)
+- `app/db/` — DB 연결, 벡터 검색 쿼리
+- `app/schemas/` — Pydantic 요청/응답 모델

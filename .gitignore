@@ -1,0 +1,98 @@
+# ====================================================
+# PNN 프로젝트 루트 .gitignore
+# ====================================================
+
+# ──────────────────────────────────────────
+# [보안] 민감 정보 — 절대 커밋 금지
+# ──────────────────────────────────────────
+.env
+.env.*
+*.env
+credentials.json
+secrets.json
+
+# API 키가 포함된 데이터 파일
+data/의약품-영양제-데이터-api.txt
+
+# application.properties 중 로컬 전용 설정 (나중에 분리 시)
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/application-secret.properties
+
+# ──────────────────────────────────────────
+# [데이터] 대용량 CSV 파일 제외 (Git LFS 또는 별도 관리)
+# ──────────────────────────────────────────
+data/*.csv
+data/*.xlsx
+data/*.xls
+
+# ──────────────────────────────────────────
+# [backend] Spring Boot / Gradle
+# ──────────────────────────────────────────
+backend/build/
+backend/.gradle/
+backend/bin/
+backend/out/
+
+# Gradle Wrapper JAR는 포함 (gradlew 실행에 필요)
+!backend/gradle/wrapper/gradle-wrapper.jar
+
+# 빌드된 JAR/WAR 제외 (wrapper jar는 위에서 예외 처리)
+backend/*.jar
+backend/*.war
+
+# ──────────────────────────────────────────
+# [ai-server] Python / FastAPI (향후)
+# ──────────────────────────────────────────
+ai-server/__pycache__/
+ai-server/**/__pycache__/
+ai-server/*.py[cod]
+ai-server/**/*.py[cod]
+ai-server/.venv/
+ai-server/venv/
+ai-server/env/
+ai-server/.env
+ai-server/*.egg-info/
+ai-server/dist/
+ai-server/.pytest_cache/
+
+# ──────────────────────────────────────────
+# [frontend] Expo / React Native (향후)
+# ──────────────────────────────────────────
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+
+# ──────────────────────────────────────────
+# [IDE / 에디터]
+# ──────────────────────────────────────────
+# IntelliJ IDEA / PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code / Cursor 개인 설정 (rules는 포함, 개인 설정만 제외)
+.vscode/
+
+# ──────────────────────────────────────────
+# [OS]
+# ──────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ──────────────────────────────────────────
+# [로그]
+# ──────────────────────────────────────────
+*.log
+logs/
