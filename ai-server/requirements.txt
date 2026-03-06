@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+openai
+pydantic
+pydantic-settings
+requests
+# pgvector 관련 (나중에 추가 가능하지만 미리)
+psycopg[binary]
+pgvector
