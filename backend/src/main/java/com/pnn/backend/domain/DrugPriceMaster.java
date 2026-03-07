@@ -13,11 +13,14 @@ public class DrugPriceMaster {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 내부 식별자
 
+    @Column(length = 500)
     private String itemName; // 한글상품명
 
+    @Column(length = 500)
     private String entpName; // 업체명
 
-    private String drugSpec; // 약품규격
+    @Column(length = 2000)
+    private String drugSpec; // 약품규격 (가장 길 수 있음)
 
     private String formType; // 제형구분
 

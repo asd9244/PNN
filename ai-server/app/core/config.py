@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1" # API 버전 접두사
     
     # 보안: .env에서 로드
-    OPENAI_API_KEY: str = "" # OpenAI API 키 (환경변수에서 로드)
+    OPENAI_API_KEY: str = "" # OpenAI API 키 (OCR, LLM용)
     DATABASE_URL: str = "postgresql://postgres:1234@localhost:5432/pnn-db" # DB 연결 URL (기본값, 환경변수 우선)
 
     class Config:

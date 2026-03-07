@@ -6,6 +6,8 @@ alwaysApply: false
 
 # Spring Boot Backend (PNN)
 
+<!-- 2026-03-07 갱신: drug_identification, BatchController 배치 엔드포인트 반영 -->
+
 ## 스택
 
 | 항목 | 값 |
@@ -31,7 +33,16 @@ alwaysApply: false
 
 ## 처방약 검색 API (낱알식별)
 
-검색 조건: 모양, 색상, 각인, 이니셜, 분할선, 제형 → `drugs` 테이블 조회 → 후보 목록 반환.
+검색 조건: 모양, 색상, 각인, 이니셜, 분할선, 제형 → `drugs` + `drug_identification` 조인 조회 → 후보 목록 반환.
+
+## 배치 API (`BatchController`)
+
+| 엔드포인트 | 용도 |
+|------------|------|
+| `/api/batch/drug-identification` | 낱알식별 API → drugs, drug_identification 적재 |
+| `/api/batch/drug-enrich` | 허가정보 API → drugs 보강, drug_ingredients 적재 |
+| `/api/batch/drug-easy-info` | e약은요 API → drug_easy_info 적재 |
+| `/api/batch/supplement` | 식품안전나라 API → supplements 적재 |
 
 ## Spring → Python API (RestClient 호출)
 
@@ -53,5 +64,5 @@ alwaysApply: false
 - `com.pnn.backend.domain` — 엔티티
 - `com.pnn.backend.repository` — JPA Repository
 - `com.pnn.backend.service` — 비즈니스 로직 (1차 필터 포함)
-- `com.pnn.backend.controller` — REST API
-- `com.pnn.backend.client` — Python AI 서버 RestClient
+- `com.pnn.backend.controller` — REST API (BatchController 포함)
+- `com.pnn.backend.client` — 공공데이터 API, 식품안전나라 API, Python AI 서버 RestClient

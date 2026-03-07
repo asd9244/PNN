@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Database (PNN)
 
+<!-- 2026-03-07 갱신: drug_easy_info, supplements, knowledge_embeddings(BGE-M3 1024차원) 반영 -->
+
 ## 스택
 
 | 항목 | 값 |
@@ -13,24 +15,37 @@ alwaysApply: true
 | 확장 | pgvector (벡터 유사도 검색) |
 | 접근 | Spring (JPA) + Python (psycopg + pgvector) 양쪽 접근 |
 
-## 정형 테이블 (6개)
+## 정형 테이블
+
+### 핵심 테이블 (6개)
 
 | 테이블 | 주요 필드 | 비고 |
 |--------|-----------|------|
 | `users` | id, email, password_hash, created_at | 사용자 계정 |
-| `drugs` | id, name, ingredients, shape, color, imprint, initial, form_type | 의약품 마스터 (공공데이터 배치 적재) |
+| `drugs` | id, item_seq(UNIQUE), item_name, entp_name, chart, ingr_name 등 | 의약품 마스터. item_seq가 공공데이터 연결 키 |
 | `user_drugs` | id, user_id, drug_id, start_date, is_active | 기복용 처방약 |
 | `user_supplements` | id, user_id, supplement_name, nutrients(JSONB), registered_at | 기복용 영양제 (OCR 결과 JSONB 저장) |
-| `interaction_rules` | id, drug_ingredient, nutrient, level, description, action | Rule-based 상호작용 규칙 (1차 필터용) |
+| `interaction_rules` | id, drug_ingredient, nutrient, level, description, action | Rule-based 1차 필터용 (현재 비어 있음) |
 | `analysis_logs` | id, user_id, case_type, request(JSONB), response(JSONB), created_at | 분석 이력 로그 |
+
+### 배치 적재 테이블
+
+| 테이블 | 주요 필드 | 비고 |
+|--------|-----------|------|
+| `drug_identification` | drug_id, drug_shape, color_class1/2, print_front/back, line_front/back | 낱알식별 정보 (drugs 1:1) |
+| `drug_ingredients` | drug_id, mtral_nm, qnt, main_ingr_eng | 의약품 성분 (drugs N:1) |
+| `drug_easy_info` | item_seq(UNIQUE), item_name, intrc_qesitm, atpn_qesitm 등 | e약은요 API. RAG 지식 베이스 원본 |
+| `supplements` | prdlst_nm, prdlst_report_no, primary_fnclty, rawmtrl_nm 등 | 건강기능식품 마스터 (식품안전나라 API) |
+| `contraindications` | ingredient_name1/2, product_name1/2, reason | 의약품안전관리원 병용금기 원시 데이터 |
+| `drug_price_master` | std_code, item_name, bar_code 등 | 심평원 약가 마스터 (코드 매핑용) |
 
 ## 벡터 테이블
 
 | 테이블 | 주요 필드 | 비고 |
 |--------|-----------|------|
-| `knowledge_embeddings` | id, content, embedding(vector), source, category, metadata(JSONB) | 상호작용/영양소 고갈 문헌 임베딩 |
+| `knowledge_embeddings` | id, content, embedding(vector), source, category, metadata(JSONB) | drug_easy_info 벡터화. RAG 검색용 |
 
-- 임베딩 모델: `text-embedding-3-small` (1536차원) 또는 `text-embedding-3-large` (3072차원) — 미확정
+- 임베딩 모델: **BGE-M3 (Ollama)** 1024차원 — 로컬 실행, API 비용 없음
 - 인덱스: HNSW (`CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)`)
 - 유사도 검색: 코사인 유사도 (`<=>` 연산자)
 - lists/m/ef_construction 튜닝은 데이터 규모에 따라 조정
@@ -39,7 +54,7 @@ alwaysApply: true
 
 - `user_supplements.nutrients`: OCR 정형화 결과 저장 (성분명, 함량, 단위, 일일권장량%)
 - `analysis_logs.request / response`: 분석 요청·응답 원문 보존
-- `knowledge_embeddings.metadata`: 문헌 메타정보 (출처, 날짜 등)
+- `knowledge_embeddings.metadata`: `item_seq`, `item_name`, `entp_name` — 검색 결과 출처 표시
 - JSONB 컬럼에는 GIN 인덱스 적용 (`CREATE INDEX ... USING gin (column jsonb_path_ops)`)
 - 정형화 가능한 데이터는 반드시 정규 컬럼으로 분리 (JSONB 남용 금지)
 

@@ -1,11 +1,14 @@
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- Drop table if exists to change vector dimension
+DROP TABLE IF EXISTS knowledge_embeddings CASCADE;
+
 -- Create knowledge_embeddings table
 CREATE TABLE IF NOT EXISTS knowledge_embeddings (
     id BIGSERIAL PRIMARY KEY,
     content TEXT NOT NULL,
-    embedding vector(1536), -- text-embedding-3-small (1536 dim)
+    embedding vector(1024), -- bge-m3 (1024 dim, Ollama 로컬)
     source VARCHAR(255),
     category VARCHAR(50),
     metadata JSONB DEFAULT '{}'::jsonb,

@@ -13,6 +13,9 @@ public class Supplement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true) // 중복 적재 방지용 고유 키
+    private String prdlstReportNo; // 품목제조번호 (PRDLST_REPORT_NO)
+
     @Column(nullable = false)
     private String prdlstNm; // 품목명 (PRDLST_NM)
 
@@ -38,4 +41,7 @@ public class Supplement {
 
     @Column(columnDefinition = "TEXT")
     private String stdrStnd; // 기준 규격 (STDR_STND)
+
+    @Column(columnDefinition = "TEXT")
+    private String capRawmtrlNm; // 캡슐 원재료 (CAP_RAWMTRL_NM)
 }

@@ -5,13 +5,15 @@ alwaysApply: true
 
 # 시스템 아키텍처
 
+<!-- 2026-03-07 갱신: Spring Boot 3.5.11, RAG BGE-M3 명시 -->
+
 ## 3-Tier 구조
 
 ```
 Client (Web Browser)
   │  HTTPS
   ▼
-Spring Boot 3.4.x (Java 17, Gradle) — 메인 백엔드
+Spring Boot 3.5.11 (Java 17, Gradle) — 메인 백엔드
   │  내부망 REST API
   ▼
 Python AI Server (FastAPI)
@@ -25,7 +27,7 @@ PostgreSQL 16+ (정형 + JSONB + pgvector)
 | 레이어 | 역할 |
 |--------|------|
 | **Spring Boot** | 유일한 클라이언트 진입점. 인증/권한, 프로필 CRUD, 처방약 검색, Rule-based 1차 필터, Python 호출 오케스트레이션, 응답 조합, DB 트랜잭션 |
-| **Python AI Server** | OCR 파이프라인(Vision + GPT-4o 정형화), RAG 파이프라인(pgvector + LLM 분석), 영양제 제품명 매칭. Spring에서만 호출(내부망) |
+| **Python AI Server** | OCR 파이프라인(Vision + GPT-4o), RAG 파이프라인(BGE-M3 임베딩 + pgvector + LLM), 영양제 매칭. Spring에서만 호출(내부망) |
 | **PostgreSQL** | 정형 데이터(의약품, 사용자, 프로필), JSONB(OCR 결과, 분석 로그), pgvector(상호작용 지식 임베딩). Spring·Python 양쪽 접근 |
 
 ## 설계 원칙
