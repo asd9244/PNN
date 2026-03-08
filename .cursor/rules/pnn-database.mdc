@@ -38,6 +38,7 @@ alwaysApply: true
 | `supplements` | prdlst_nm, prdlst_report_no, primary_fnclty, rawmtrl_nm 등 | 건강기능식품 마스터 (식품안전나라 API) |
 | `contraindications` | ingredient_name1/2, product_name1/2, reason | 의약품안전관리원 병용금기 원시 데이터 |
 | `drug_price_master` | std_code, item_name, bar_code 등 | 심평원 약가 마스터 (코드 매핑용) |
+| `ingredient_efficacy` | gnl_nm_cd(UNIQUE), gnl_nm, meft_div_no, div_nm 등 | 심평원 성분약효 API. 성분 단위 지식, RAG/LLM 보완용 |
 
 ## 벡터 테이블
 

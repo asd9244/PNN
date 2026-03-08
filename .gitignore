@@ -24,6 +24,7 @@ backend/src/main/resources/application-secret.properties
 data/*.csv
 data/*.xlsx
 data/*.xls
+data/supa-ai/
 
 # ──────────────────────────────────────────
 # [backend] Spring Boot / Gradle

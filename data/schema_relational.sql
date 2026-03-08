@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS drugs (
     material_name VARCHAR(255),
     main_item_ingr VARCHAR(255),
     ingr_name VARCHAR(255),
+    main_ingr_eng TEXT,
     atc_code VARCHAR(255),
     total_content VARCHAR(255),
     big_prdt_img_url VARCHAR(1000)
@@ -76,7 +77,8 @@ CREATE TABLE IF NOT EXISTS interaction_rules (
     nutrient VARCHAR(255) NOT NULL,
     level VARCHAR(255) NOT NULL, -- ENUM: SAFE, CAUTION, WARNING, SYNERGY
     description TEXT,
-    action TEXT
+    action TEXT,
+    UNIQUE(drug_ingredient, nutrient)
 );
 
 -- Supplements Table (Master)
@@ -141,3 +143,19 @@ CREATE TABLE IF NOT EXISTS drug_price_master (
     ingr_code VARCHAR(255),
     atc_code VARCHAR(255)
 );
+
+-- Ingredient Efficacy Table (심평원 의약품성분약효정보 API)
+-- 성분 단위 지식: drug_easy_info 보완, RAG/LLM 컨텍스트용
+CREATE TABLE IF NOT EXISTS ingredient_efficacy (
+    id BIGSERIAL PRIMARY KEY,
+    gnl_nm_cd VARCHAR(20) NOT NULL UNIQUE,
+    gnl_nm VARCHAR(255) NOT NULL,
+    meft_div_no VARCHAR(10),
+    div_nm VARCHAR(255),
+    fomn_tp_nm VARCHAR(100),
+    injc_pth_nm VARCHAR(100),
+    iqty_txt VARCHAR(500),
+    unit VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ingredient_efficacy_gnl_nm ON ingredient_efficacy(gnl_nm);

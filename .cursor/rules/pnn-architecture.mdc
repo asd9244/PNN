@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 시스템 아키텍처
 
-<!-- 2026-03-07 갱신: Spring Boot 3.5.11, RAG BGE-M3 명시 -->
+<!-- 2026-03-08 갱신: PostgreSQL 18.1, Python API /api/v1/ 경로 반영 -->
 
 ## 3-Tier 구조
 
@@ -19,7 +19,7 @@ Spring Boot 3.5.11 (Java 17, Gradle) — 메인 백엔드
 Python AI Server (FastAPI)
   │
   ▼
-PostgreSQL 16+ (정형 + JSONB + pgvector)
+PostgreSQL 18.1 (정형 + JSONB + pgvector)
 ```
 
 ## 레이어별 역할
@@ -41,10 +41,10 @@ PostgreSQL 16+ (정형 + JSONB + pgvector)
 
 | 호출 | 타임아웃 | 비고 |
 |------|----------|------|
-| OCR (`/api/ai/ocr/extract`) | 30초 | 이미지 처리 포함 |
-| 상호작용 분석 (`/api/ai/interaction/analyze`) | 15초 | RAG + LLM |
-| 영양 성분 추천 (`/api/ai/recommendation/safe-nutrients`) | 15초 | RAG + LLM |
-| 제품명 매칭 (`/api/ai/supplement/match`) | 10초 | LLM 추론 |
+| OCR (`/api/v1/ocr/extract`) | 30초 | 이미지 처리 포함 |
+| 상호작용 분석 (`/api/v1/interaction/analyze`) | 15초 | RAG + LLM |
+| 영양 성분 추천 (`/api/v1/recommendation/safe-nutrients`) | 15초 | RAG + LLM |
+| 제품명 매칭 (`/api/v1/supplement/match`) | 10초 | LLM 추론 |
 
 - **재시도**: 최대 2회, 지수 백오프 (1초 → 2초)
 - **fallback**: Python 응답 실패 시 Spring 1차 룰 결과 반환 또는 "일시적 오류" 안내

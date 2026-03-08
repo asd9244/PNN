@@ -18,26 +18,49 @@ def get_db_connection():
 def fetch_drug_easy_info() -> List[Dict[str, Any]]:
     """
     drug_easy_info 테이블에서 임베딩에 필요한 데이터를 조회합니다.
-    상호작용 정보(intrc_qesitm) 또는 주의사항(atpn_qesitm)이 있는 데이터만 조회합니다.
+    drug_ingredients와 조인하여 성분명(ingredient_names)을 포함합니다.
+    상호작용/주의사항/효능이 있는 데이터만 조회합니다.
     """
     query = """
     SELECT 
-        item_seq,
-        item_name,
-        entp_name,
-        efcy_qesitm,
-        use_method_qesitm,
-        atpn_warn_qesitm,
-        atpn_qesitm,
-        intrc_qesitm,
-        se_qesitm,
-        deposit_method_qesitm
-    FROM drug_easy_info
-    WHERE intrc_qesitm IS NOT NULL 
-       OR atpn_qesitm IS NOT NULL
-       OR efcy_qesitm IS NOT NULL;
+        dei.item_seq,
+        dei.item_name,
+        dei.entp_name,
+        dei.efcy_qesitm,
+        dei.use_method_qesitm,
+        dei.atpn_warn_qesitm,
+        dei.atpn_qesitm,
+        dei.intrc_qesitm,
+        dei.se_qesitm,
+        dei.deposit_method_qesitm,
+        COALESCE(STRING_AGG(DISTINCT di.mtral_nm, ', ') FILTER (WHERE di.mtral_nm IS NOT NULL), '') AS ingredient_names
+    FROM drug_easy_info dei
+    LEFT JOIN drugs d ON dei.item_seq = d.item_seq
+    LEFT JOIN drug_ingredients di ON d.id = di.drug_id
+    WHERE dei.intrc_qesitm IS NOT NULL 
+       OR dei.atpn_qesitm IS NOT NULL
+       OR dei.efcy_qesitm IS NOT NULL
+    GROUP BY dei.id, dei.item_seq, dei.item_name, dei.entp_name,
+             dei.efcy_qesitm, dei.use_method_qesitm, dei.atpn_warn_qesitm,
+             dei.atpn_qesitm, dei.intrc_qesitm, dei.se_qesitm, dei.deposit_method_qesitm;
     """
-    
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            results = cur.fetchall()
+            return results
+
+
+def fetch_ingredient_efficacy() -> List[Dict[str, Any]]:
+    """
+    ingredient_efficacy 테이블에서 임베딩에 필요한 데이터를 조회합니다.
+    RAG 지식 베이스 보강용 (성분 + 약효분류).
+    """
+    query = """
+    SELECT gnl_nm_cd, gnl_nm, meft_div_no, div_nm, fomn_tp_nm, injc_pth_nm, iqty_txt, unit
+    FROM ingredient_efficacy
+    """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query)

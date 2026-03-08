@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Spring Boot Backend (PNN)
 
-<!-- 2026-03-07 갱신: drug_identification, BatchController 배치 엔드포인트 반영 -->
+<!-- 2026-03-08 갱신: drug-ingredient 배치 추가, Python API 경로(/api/v1/) 반영 -->
 
 ## 스택
 
@@ -40,18 +40,23 @@ alwaysApply: false
 | 엔드포인트 | 용도 |
 |------------|------|
 | `/api/batch/drug-identification` | 낱알식별 API → drugs, drug_identification 적재 |
-| `/api/batch/drug-enrich` | 허가정보 API → drugs 보강, drug_ingredients 적재 |
+| `/api/batch/drug-enrich` | 허가정보 API → drugs 보강 |
+| `/api/batch/drug-ingredient` | 주성분 상세 API → drug_ingredients 적재 |
 | `/api/batch/drug-easy-info` | e약은요 API → drug_easy_info 적재 |
 | `/api/batch/supplement` | 식품안전나라 API → supplements 적재 |
 
+- 각 배치에 `/all` 경로가 있으면 비동기 전체 실행 (예: `/api/batch/drug-identification/all`)
+
 ## Spring → Python API (RestClient 호출)
+
+Python 서버 경로 prefix: `/api/v1` (config.API_V1_STR)
 
 | 엔드포인트 | 용도 | 타임아웃 |
 |------------|------|----------|
-| `POST /api/ai/ocr/extract` | 영양성분표 이미지 → JSON 정형화 | 30초 |
-| `POST /api/ai/interaction/analyze` | Case A 심층 상호작용 분석 | 15초 |
-| `POST /api/ai/recommendation/safe-nutrients` | Case B 안전 영양 성분 추천 | 15초 |
-| `POST /api/ai/supplement/match` | 영양제 제품명 매칭 | 10초 |
+| `POST /api/v1/ocr/extract` | 영양성분표 이미지 → JSON 정형화 | 30초 |
+| `POST /api/v1/interaction/analyze` | Case A 심층 상호작용 분석 | 15초 |
+| `POST /api/v1/recommendation/safe-nutrients` | Case B 안전 영양 성분 추천 | 15초 |
+| `POST /api/v1/supplement/match` | 영양제 제품명 매칭 | 10초 |
 
 - Python 서버 URL은 환경변수 또는 application.properties로 관리
 - 재시도: 최대 2회, 지수 백오프 (1초, 2초)

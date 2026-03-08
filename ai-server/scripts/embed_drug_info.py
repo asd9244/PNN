@@ -27,6 +27,10 @@ def process_and_embed_data():
         base_info = f"약품명: {drug['item_name']}, 제조사: {drug['entp_name']}"
         parts.append(base_info)
 
+        # 성분명 (drug_ingredients 조인 결과)
+        if drug.get('ingredient_names'):
+            parts.append(f"성분: {drug['ingredient_names']}")
+
         # 효능효과
         if drug['efcy_qesitm']:
              parts.append(f"효능효과: {drug['efcy_qesitm']}")
@@ -61,10 +65,12 @@ def process_and_embed_data():
 
             embedding = get_embedding(full_text)
             
+            ingredient_list = [s.strip() for s in drug.get('ingredient_names', '').split(',') if s.strip()] if drug.get('ingredient_names') else []
             metadata = {
                 "item_seq": drug['item_seq'],
                 "item_name": drug['item_name'],
-                "entp_name": drug['entp_name']
+                "entp_name": drug['entp_name'],
+                "ingredients": ingredient_list
             }
             
             save_embedding(full_text, embedding, metadata)

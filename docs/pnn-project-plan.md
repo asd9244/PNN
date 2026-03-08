@@ -44,21 +44,25 @@
   │
   ├─ (2) Python AI 서버로 OCR + 정형화 요청
   │       ├─ Google Cloud Vision API → 텍스트 추출
-  │       └─ OpenAI GPT-4o → JSON 정형화
+  │       └─ OpenAI GPT-4o → JSON 정형화 (성분명은 반드시 영문으로 출력)
   │
-  ├─ (3) 정형화된 영양제 데이터(JSON) 수신 및 저장 (PostgreSQL JSONB)
+  ├─ (3) 정형화된 영양제 데이터(JSON) 수신 및 저장 (user_supplements.nutrients, 영문)
   │
-  ├─ (4) 사용자가 식별/선택한 신규 처방약 데이터 매핑 (DB 조회)
+  ├─ (4) 사용자가 식별/선택한 신규 처방약 → drug_id 확보
   │
-  ├─ (5) Rule-based 1차 필터링 (Spring 내부)
-  │       └─ 금기 조합 DB 매칭 → 확정적 충돌 즉시 반환
+  ├─ (5) drug_id → drugs.main_ingr_eng 조회 → "/" split → [영문 성분 목록]
+  │       └─ main_ingr_eng 없음(상세정보 미적재) → 약품명만 LLM에 전달 → 안내문 제공
   │
-  ├─ (6) 1차 필터에서 미결정인 건 → Python AI 서버로 심층 분석 요청
+  ├─ (6) Rule-based 1차 필터링 (Spring 내부)
+  │       └─ (drug_ingredient, nutrient) × interaction_rules 매칭
+  │       └─ 미매칭 시 성분만 모아서 LLM으로 전달 (약 2.5만 drug vs 2천 성분 룰)
+  │
+  ├─ (7) 1차 필터에서 미결정인 건 → Python AI 서버로 심층 분석 요청
   │       └─ RAG(pgvector 검색) + LLM 상호작용 분석
   │
   ▼
 [응답]
-  └─ (7) 결과 반환: '병용 안전' / '시간 간격 필요' / '복용 기간 내 중단 권장' 등
+  └─ (8) 결과 반환: '병용 안전' / '시간 간격 필요' / '복용 기간 내 중단 권장' 등
 ```
 
 ### Use Case 예시
@@ -85,7 +89,7 @@
 
 ### 개념
 
-처방약을 복용 중인 사용자가 새로운 영양제를 구매하고자 할 때, **기존 상호작용 데이터(병용금기/interaction_rules)**를 활용하여 **피해야 할 영양 성분을 경고**하고, 해당 정보를 참고하여 LLM이 **안전하고 유익한 영양 성분을 추천** + 외부 커머스 검색 결과로 **딥링크(Deep Linking)**한다.
+처방약을 복용 중인 사용자가 새로운 영양제를 구매하고자 할 때, **interaction_rules**를 활용하여 **피해야 할 영양 성분을 경고**하고, 해당 정보를 참고하여 LLM이 **안전하고 유익한 영양 성분을 추천** + 외부 커머스 검색 결과로 **딥링크(Deep Linking)**한다.
 
 ### 데이터 흐름 (Protocol Flow)
 
@@ -97,19 +101,21 @@
   ▼
 [Spring Boot - 메인 백엔드]
   │
-  ├─ (2) User Profile DB에서 기복용 처방약 리스트 조회
+  ├─ (2) user_drugs에서 drug_id 목록 조회 (복수 drug — 추후 별도 설계)
   │
-  ├─ (3) 처방약 성분 → 상호작용 DB(interaction_rules)에서 금기/주의 영양 성분 추출
-  │       └─ 경고 목록 생성 (이 성분은 피하세요)
+  ├─ (3) 각 drug_id → drugs.main_ingr_eng 조회 → "/" split → [영문 성분 목록]
   │
-  ├─ (4) 금기 성분 정보 + 처방약 정보 → Python AI 서버로 추천 요청
+  ├─ (4) 각 drug 성분에 대해 interaction_rules 조회 (findByDrugIngredient)
+  │       └─ CAUTION/WARNING nutrient 수집 → 경고 목록 생성
+  │
+  ├─ (5) 금기 성분 정보 + 처방약 정보 → Python AI 서버로 추천 요청
   │       └─ RAG(pgvector) + LLM 기반 안전 영양 성분 추천 + 사유 생성
   │
-  ├─ (5) 추천 성분명 → URLEncoder → 제휴 쇼핑몰 동적 검색 URL 생성
+  ├─ (6) 추천 성분명 → URLEncoder → 제휴 쇼핑몰 동적 검색 URL 생성
   │
   ▼
 [응답]
-  └─ (6) 금기 성분 경고 + 추천 성분/사유 + 외부 커머스 딥링크 제공
+  └─ (7) 금기 성분 경고 + 추천 성분/사유 + 외부 커머스 딥링크 제공
 ```
 
 ### Use Case 예시
@@ -280,18 +286,18 @@
 영양성분표 촬영 (Client)
 → Spring → Python OCR Pipeline
   → Google Vision API: 이미지 → Raw Text
-  → GPT-4o: Raw Text → 정형 JSON
+  → GPT-4o: Raw Text → 정형 JSON (성분명은 반드시 영문으로 출력)
     {
       "product_name": "○○ 종합비타민",
       "servings": "1정",
       "nutrients": [
-        { "name": "비타민C", "amount": 500, "unit": "mg", "daily_value_pct": 500 },
-        { "name": "마그네슘", "amount": 150, "unit": "mg", "daily_value_pct": 47 },
+        { "name": "Vitamin C", "amount": 500, "unit": "mg", "daily_value_pct": 500 },
+        { "name": "Magnesium", "amount": 150, "unit": "mg", "daily_value_pct": 47 },
         ...
       ]
     }
-→ Spring: JSON 수신 → PostgreSQL 저장 (JSONB)
-→ 사용자에게 "이 성분이 맞나요?" 확인 UI 표시
+→ Spring: JSON 수신 → user_supplements 저장 (nutrients JSONB, 영문)
+→ interaction_rules 조회 시 그대로 사용 (한/영 매핑 테이블 불필요)
 ```
 
 ---
@@ -326,9 +332,9 @@ Content-Type: application/json
 
 Request:
   {
-    "drug": { "id": "string", "name": "string", "ingredients": ["string"] },
+    "drug": { "id": "string", "name": "string", "ingredients": ["string"] },  // ingredients: drugs.main_ingr_eng split (영문)
     "supplements": [
-      { "name": "string", "nutrients": [{ "name": "string", "amount": number, "unit": "string" }] }
+      { "name": "string", "nutrients": [{ "name": "string", "amount": number, "unit": "string" }] }  // name: 영문
     ]
   }
 
@@ -336,8 +342,8 @@ Response (200):
   {
     "interactions": [
       {
-        "nutrient": "마그네슘",
-        "drug_ingredient": "테트라사이클린",
+        "nutrient": "Magnesium",
+        "drug_ingredient": "Tetracycline",
         "level": "CAUTION | WARNING | SAFE | SYNERGY",
         "description": "string",
         "action": "string",
@@ -420,15 +426,15 @@ Response (200):
 | 테이블 | 주요 필드 | 데이터 소스 | 비고 |
 | --- | --- | --- | --- |
 | `users` | id, email, password_hash, created_at | 직접 입력 | 사용자 계정 |
-| `drugs` | id, item_seq, item_name, entp_name, etc_otc_code, chart, material_name, main_item_ingr, ingr_name, atc_code, total_content, big_prdt_img_url | 의약품 허가정보/상세 API | 의약품 마스터. ITEM_SEQ를 기준 키로 사용 |
+| `drugs` | id, item_seq, item_name, entp_name, etc_otc_code, chart, material_name, main_item_ingr, ingr_name, **main_ingr_eng**, atc_code, total_content, big_prdt_img_url | 의약품 허가정보/상세 API, 주성분 상세 API | 의약품 마스터. main_ingr_eng는 drug당 1건(주성분 영문, "/" 구분). Case A/B 1차 필터용 |
 | `drug_identification` | id, drug_id(FK), drug_shape, color_class1, color_class2, print_front, print_back, line_front, line_back, form_code_name, item_image, class_name | 낱알식별 API | 낱알 외형정보. drugs와 ITEM_SEQ로 연결 |
 | `drug_ingredients` | id, drug_id(FK), mtral_code, mtral_nm, qnt, ingd_unit_cd, main_ingr_eng | 주성분 상세 API | 의약품별 주성분 목록. 1:N 관계 |
 | `contraindications` | id, ingredient_name1, ingredient_code1, product_code1, product_name1, company_name1, ingredient_name2, ingredient_code2, product_code2, product_name2, company_name2, notice_no, notice_date, reason | 병용금기 CSV (~54만건) | 약물 간 병용금기 조합. 1차 필터에 활용 |
 | `drug_price_master` | id, item_name, entp_name, drug_spec, form_type, pkg_type, std_code, permit_date, etc_otc_type, represent_code, bar_code, ingr_code, atc_code | 약가마스터 CSV (~30만건) | 표준코드·ATC코드 매핑용 |
 | `supplements` | id, prdlst_nm, bssh_nm, primary_fnclty, rawmtrl_nm, indiv_rawmtrl_nm, etc_rawmtrl_nm, ntk_mthd, iftkn_atnt_matr_cn, stdr_stnd | 건강기능식품 API | 건강기능식품 마스터 |
 | `user_drugs` | id, user_id(FK), drug_id(FK), start_date, is_active | 직접 입력 | 사용자 기복용 처방약 |
-| `user_supplements` | id, user_id(FK), supplement_name, nutrients(JSONB), registered_at | OCR + 직접 입력 | 사용자 기복용 영양제. OCR 결과를 JSONB로 저장 |
-| `interaction_rules` | id, drug_ingredient, nutrient, level(SAFE/CAUTION/WARNING/SYNERGY), description, action | 병용금기 CSV 가공 + 전문가 검수 | Rule-based 1차 필터용. contraindications에서 성분 단위로 정리 |
+| `user_supplements` | id, user_id(FK), supplement_name, nutrients(JSONB), registered_at | OCR + 직접 입력 | 사용자 기복용 영양제. nutrients는 LLM이 영문으로 출력 (Vitamin C, Magnesium 등) |
+| `interaction_rules` | id, drug_ingredient, nutrient, level(SAFE/CAUTION/WARNING/SYNERGY), description, action | SUPP.AI JSON 적재 | Rule-based 1차 필터용. drug_ingredient, nutrient 모두 영문 |
 | `analysis_logs` | id, user_id(FK), case_type(A/B), request(JSONB), response(JSONB), created_at | 시스템 생성 | 분석 이력 로그 |
 
 ### 7.2 벡터 테이블 (pgvector)
@@ -444,9 +450,9 @@ Response (200):
 
 ```
 users ─┬─ user_drugs ── drugs ─┬─ drug_identification (1:1)
-       │                       ├─ drug_ingredients (1:N)
-       └─ user_supplements     └─ contraindications (성분코드로 조회)
-                                  interaction_rules (성분명 기반 1차 필터)
+       │                       ├─ drug_ingredients (1:N, RAG용)
+       │                       └─ drugs.main_ingr_eng (drug당 1건, 1차 필터용)
+       └─ user_supplements     └─ interaction_rules (영문 drug_ingredient × nutrient)
                                   drug_price_master (표준코드 매핑)
 supplements (건강기능식품 마스터, 독립)
 knowledge_embeddings (벡터 검색, 독립)
@@ -454,7 +460,7 @@ knowledge_embeddings (벡터 검색, 독립)
 
 ### 7.4 JSONB 사용 규칙
 
-- `user_supplements.nutrients`: OCR로 추출한 영양성분 JSON (name, amount, unit, daily_value_pct)
+- `user_supplements.nutrients`: OCR→LLM 정형화 결과. **name은 반드시 영문** (Vitamin C, Coenzyme Q10 등). interaction_rules 조회 시 그대로 사용
 - `analysis_logs.request/response`: 분석 요청/응답 원문 보존
 - JSONB 내부 필드 검색이 빈번한 경우 GIN 인덱스 추가
 
@@ -465,13 +471,20 @@ knowledge_embeddings (벡터 검색, 독립)
 ### 8.1 Rule-based 1차 필터 (Spring)
 
 ```
-[처방약 성분] × [영양제 성분] → interaction_rules 테이블 조회
+[Case A] drug_id → drugs.main_ingr_eng → "/" split → [영문 성분]
+         user_supplements.nutrients → [영문]
+         (drug_ingredient, nutrient) × interaction_rules 매칭
+
+[Case B] user_drugs → drug_id들 → drugs.main_ingr_eng split
+         findByDrugIngredient → CAUTION/WARNING nutrient 수집
+
   ├─ 매칭 있음 → 즉시 결과 반환 (확정적 충돌/안전)
-  └─ 매칭 없음 or 복합 판단 필요 → Python 2차 분석으로 전달
+  └─ 매칭 없음 → 성분만 모아서 Python LLM으로 전달 (약 2.5만 drug vs 2천 성분 룰)
 ```
 
-- **장점**: 확정적 금기 조합은 LLM 호출 없이 빠르게 처리 → 비용 절감, 응답 속도 향상
-- **관리**: `interaction_rules` 테이블은 약사/전문가 검수 후 수동 입력 또는 문헌 기반 배치 적재
+- **데이터**: drug_ingredient, nutrient 모두 **영문**. 한/영 매핑 테이블(ingredient_mapping) 사용하지 않음
+- **Fallback**: drugs.main_ingr_eng 없으면(상세정보 미적재) 약품명만 LLM에 전달 → 안내문 제공
+- **관리**: `interaction_rules`는 SUPP.AI JSON 배치 적재
 
 ### 8.2 LLM + RAG 2차 분석 (Python)
 
@@ -527,15 +540,17 @@ knowledge_embeddings (벡터 검색, 독립)
 ### Phase 2: Case A 구현 (충돌 검사)
 
 - [ ]  처방약 검색 API (모양/색/각인 기반)
-- [ ]  OCR 파이프라인 (Vision + GPT-4o 정형화)
+- [ ]  OCR 파이프라인 (Vision + GPT-4o 정형화, **성분명 영문 출력**)
 - [ ]  영양성분 등록/조회 API
-- [ ]  Rule-based 1차 필터 (interaction_rules)
+- [ ]  Rule-based 1차 필터 (drugs.main_ingr_eng split × interaction_rules)
+- [ ]  상세정보 없는 drug fallback (약품명 → LLM → 안내문)
 - [ ]  RAG + LLM 2차 분석 파이프라인
 - [ ]  충돌 검사 통합 API
 
 ### Phase 3: Case B 구현 (추천)
 
-- [ ]  상호작용 DB 기반 금기 성분 추출 로직 (Case A interaction_rules 재활용)
+- [ ]  상호작용 DB 기반 금기 성분 추출 로직 (drugs.main_ingr_eng split × findByDrugIngredient)
+- [ ]  복수 drug 처리 로직 설계
 - [ ]  LLM 기반 안전 영양 성분 추천 API
 - [ ]  딥링크 URL 생성 로직
 - [ ]  추천 결과 API
@@ -557,7 +572,20 @@ knowledge_embeddings (벡터 검색, 독립)
 
 ---
 
-## 11. 미결정 사항 (Open Items)
+## 11. 설계 결정 사항 (2026-03-08 확정)
+
+| 항목 | 결정 |
+| --- | --- |
+| nutrient 저장 형식 | LLM이 OCR→JSON 변환 시 **영문으로 출력** (Vitamin C, Magnesium 등). ingredient_mapping 불필요 |
+| drug 성분 조회 | drugs.main_ingr_eng split("/") → interaction_rules 직접 비교 |
+| 상세정보 없는 drug | main_ingr_eng 없으면(낱알 2.5만 vs 상세 3,800건) 약품명만 LLM에 전달 → 안내문 제공 |
+| interaction_rules 미매칭 | 성분만 모아서 LLM으로 전달. 수작업 정제 불가 수준의 데이터 |
+| 복수 drug (Case B) | 처방은 대부분 복수 → 추후 별도 설계 |
+| 표기 불일치 (Vitamin C vs Ascorbic acid) | 수작업 정제 불가, LLM 비용 부담 → 현실적 리스크 수용 |
+
+---
+
+## 12. 미결정 사항 (Open Items)
 
 | # | 항목 | 현재 상태 | 결정 시점 |
 | --- | --- | --- | --- |
@@ -569,9 +597,8 @@ knowledge_embeddings (벡터 검색, 독립)
 | 6 | 면책/규제 문구 상세 | 추후 | 서비스 출시 전 |
 | 7 | 제휴 커머스 목록 및 딥링크 형식 | 아이허브 가안 | Phase 3 |
 | 8 | 배포 환경 (클라우드/온프레미스, 컨테이너) | 미정 | Phase 1~2 |
+| 9 | Case B 복수 drug 처리 로직 | 추후 설계 | Phase 3 |
 
 ---
 
-여기까지가 지금까지 대화 내용 기반으로 작성한 초안이야.
-
-훑어보면서 **"이건 내 생각과 다르다" / "이건 빠졌다" / "이건 너무 과하다"** 같은 부분 편하게 말해 줘. 항목별로 수정 반영할게.
+*마지막 수정: 2026-03-08 (Case A/B 플랜 반영, drugs.main_ingr_eng, ingredient_mapping 삭제)*

@@ -37,6 +37,9 @@ public class Drug {
     @Column(columnDefinition = "TEXT") // 성분명 목록이 길 수 있음
     private String ingrName; // 성분명 (INGR_NAME)
 
+    @Column(columnDefinition = "TEXT") // 주성분 영문명 (drug_ingredients에서 drug당 1건만 저장)
+    private String mainIngrEng; // 주성분 영문명 (MAIN_INGR_ENG)
+
     private String atcCode; // 국제표준코드 (ATC_CODE)
 
     @Column(columnDefinition = "TEXT") // 총량 표기가 길 수 있음
