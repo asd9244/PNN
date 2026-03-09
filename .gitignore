@@ -19,12 +19,22 @@ backend/src/main/resources/application-local.properties
 backend/src/main/resources/application-secret.properties
 
 # ──────────────────────────────────────────
-# [데이터] 대용량 CSV 파일 제외 (Git LFS 또는 별도 관리)
+# [데이터] 대용량 CSV, JSON 파일 등 (원천 데이터 무시)
 # ──────────────────────────────────────────
-data/*.csv
-data/*.xlsx
-data/*.xls
-data/supa-ai/
+*.csv
+*.json
+# 예외적으로 설정용 JSON이나 메타데이터가 필요할 경우 아래에 추가
+!package.json
+!tsconfig.json
+!backend/**/*.json
+!frontend/**/*.json
+!ai-server/**/*.json
+# data/ 하위의 모든 데이터 파일들 명시적 무시
+data/**/*.csv
+data/**/*.json
+data/**/*.xlsx
+data/**/*.xls
+data/archive_setup/
 
 # ──────────────────────────────────────────
 # [backend] Spring Boot / Gradle

@@ -1,4 +1,4 @@
-package com.pnn.backend.dto;
+package com.pnn.backend.batch.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;

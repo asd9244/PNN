@@ -1,8 +1,8 @@
-package com.pnn.backend.service;
+package com.pnn.backend.batch.service;
 
-import com.pnn.backend.client.FoodSafetyClient;
+import com.pnn.backend.batch.client.FoodSafetyClient;
 import com.pnn.backend.domain.Supplement;
-import com.pnn.backend.dto.SupplementResponse;
+import com.pnn.backend.batch.dto.SupplementResponse;
 import com.pnn.backend.repository.SupplementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

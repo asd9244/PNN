@@ -1,9 +1,9 @@
-package com.pnn.backend.client;
+package com.pnn.backend.batch.client;
 
-import com.pnn.backend.dto.DrugEasyInfoResponse;
-import com.pnn.backend.dto.DrugIdentificationResponse;
-import com.pnn.backend.dto.DrugIngredientResponse;
-import com.pnn.backend.dto.DrugPermissionDetailResponse;
+import com.pnn.backend.batch.dto.DrugEasyInfoResponse;
+import com.pnn.backend.batch.dto.DrugIdentificationResponse;
+import com.pnn.backend.batch.dto.DrugIngredientResponse;
+import com.pnn.backend.batch.dto.DrugPermissionDetailResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

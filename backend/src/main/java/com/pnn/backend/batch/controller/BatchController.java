@@ -1,7 +1,7 @@
-package com.pnn.backend.controller;
+package com.pnn.backend.batch.controller;
 
-import com.pnn.backend.service.DrugDataService;
-import com.pnn.backend.service.SupplementDataService;
+import com.pnn.backend.batch.service.DrugDataService;
+import com.pnn.backend.batch.service.SupplementDataService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
