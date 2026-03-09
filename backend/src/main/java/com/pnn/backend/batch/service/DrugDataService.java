@@ -7,9 +7,6 @@ import com.pnn.backend.domain.DrugIngredient;
 import com.pnn.backend.batch.dto.DrugIdentificationResponse;
 import com.pnn.backend.batch.dto.DrugIngredientResponse;
 import com.pnn.backend.batch.dto.DrugPermissionDetailResponse;
-import com.pnn.backend.domain.DrugEasyInfo;
-import com.pnn.backend.batch.dto.DrugEasyInfoResponse;
-import com.pnn.backend.repository.DrugEasyInfoRepository;
 import com.pnn.backend.repository.DrugIdentificationRepository;
 import com.pnn.backend.repository.DrugIngredientRepository;
 import com.pnn.backend.repository.DrugRepository;
@@ -30,7 +27,6 @@ public class DrugDataService {
     private final DrugRepository drugRepository; // 약품 정보 DB 접근
     private final DrugIdentificationRepository drugIdentificationRepository; // 낱알 식별 정보 DB 접근
     private final DrugIngredientRepository drugIngredientRepository; // 주성분 정보 DB 접근
-    private final DrugEasyInfoRepository drugEasyInfoRepository; // e약은요 정보 DB 접근
     private final TransactionTemplate transactionTemplate; // 트랜잭션 수동 제어용
 
     // =====================================================
@@ -348,97 +344,6 @@ public class DrugDataService {
                 drug.setMainIngrEng(item.getMainIngrEng());
                 drugRepository.save(drug);
             }
-            count++;
-        }
-        return count;
-    }
-
-    // =====================================================
-    // e약은요 정보 적재 (drug_easy_info)
-    // =====================================================
-
-    public String fetchAllAndSaveDrugEasyInfo() {
-        log.info("=== drug_easy_info 적재 시작 (e약은요 API) ===");
-
-        DrugEasyInfoResponse firstResponse = publicDataClient.fetchDrugEasyInfo(1, 1);
-        if (firstResponse == null || firstResponse.getBody() == null) {
-            return "e약은요 API 초기 호출 실패";
-        }
-
-        int totalCount = firstResponse.getBody().getTotalCount();
-        int numOfRows = 100;
-        int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
-        int totalSaved = 0;
-        int failedPages = 0;
-
-        log.info("e약은요 전체 건수: {}, 총 페이지: {}", totalCount, totalPages);
-
-        for (int i = 1; i <= totalPages; i++) {
-            final int currentPage = i;
-            Integer savedInPage = transactionTemplate.execute(status -> {
-                try {
-                    return saveDrugEasyInfoPage(currentPage, numOfRows);
-                } catch (Exception e) {
-                    log.error("e약은요 적재 실패 (page {}): {}", currentPage, e.getMessage());
-                    status.setRollbackOnly();
-                    return -1;
-                }
-            });
-
-            if (savedInPage != null && savedInPage >= 0) {
-                totalSaved += savedInPage;
-            } else {
-                failedPages++;
-            }
-
-            if (i % 10 == 0) {
-                log.info("e약은요 적재 진행: {}/{} 페이지 (저장/갱신: {}, 실패 페이지: {})", i, totalPages, totalSaved, failedPages);
-            }
-        }
-
-        String result = String.format("e약은요 적재 완료! 전체: %d건, 페이지: %d, 처리: %d건, 실패 페이지: %d", totalCount, totalPages, totalSaved, failedPages);
-        log.info(result);
-        return result;
-    }
-
-    public String fetchAndSaveDrugEasyInfo(int pageNo, int numOfRows) { // 단일 페이지 테스트용
-        return transactionTemplate.execute(status -> {
-            int saved = saveDrugEasyInfoPage(pageNo, numOfRows);
-            return String.format("페이지 %d 처리 완료. 저장/갱신된 건수: %d", pageNo, saved);
-        });
-    }
-
-    private int saveDrugEasyInfoPage(int pageNo, int numOfRows) {
-        DrugEasyInfoResponse response = publicDataClient.fetchDrugEasyInfo(pageNo, numOfRows);
-
-        if (response == null || response.getBody() == null || response.getBody().getItems() == null) {
-            log.warn("페이지 {} 응답이 비어있음", pageNo);
-            return 0;
-        }
-
-        List<DrugEasyInfoResponse.Item> items = response.getBody().getItems();
-        int count = 0;
-
-        for (DrugEasyInfoResponse.Item item : items) {
-            if (item.getItemSeq() == null) continue;
-
-            // 이미 존재하는 경우 업데이트, 없으면 생성
-            DrugEasyInfo drugEasyInfo = drugEasyInfoRepository.findByItemSeq(item.getItemSeq())
-                    .orElse(new DrugEasyInfo());
-
-            drugEasyInfo.setItemSeq(item.getItemSeq());
-            drugEasyInfo.setItemName(item.getItemName());
-            drugEasyInfo.setEntpName(item.getEntpName());
-            drugEasyInfo.setEfcyQesitm(item.getEfcyQesitm());
-            drugEasyInfo.setUseMethodQesitm(item.getUseMethodQesitm());
-            drugEasyInfo.setAtpnWarnQesitm(item.getAtpnWarnQesitm());
-            drugEasyInfo.setAtpnQesitm(item.getAtpnQesitm());
-            drugEasyInfo.setIntrcQesitm(item.getIntrcQesitm());
-            drugEasyInfo.setSeQesitm(item.getSeQesitm());
-            drugEasyInfo.setDepositMethodQesitm(item.getDepositMethodQesitm());
-            drugEasyInfo.setItemImage(item.getItemImage());
-
-            drugEasyInfoRepository.save(drugEasyInfo);
             count++;
         }
         return count;

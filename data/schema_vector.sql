@@ -1,22 +1,5 @@
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-- knowledge_embeddings 테이블 제거 (2026-03)
+-- drugs + interaction_rules 중심 구조로 전환. RAG/knowledge_embeddings 미사용.
+-- 기존 DB 정리 시 실행: psql -U postgres -d pnn-db -f schema_vector.sql
 
--- Drop table if exists to change vector dimension
 DROP TABLE IF EXISTS knowledge_embeddings CASCADE;
-
--- Create knowledge_embeddings table
-CREATE TABLE IF NOT EXISTS knowledge_embeddings (
-    id BIGSERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    embedding vector(1024), -- bge-m3 (1024 dim, Ollama 로컬)
-    source VARCHAR(255),
-    category VARCHAR(50),
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Create HNSW index for cosine similarity search
-CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_embedding ON knowledge_embeddings USING hnsw (embedding vector_cosine_ops);
-
--- Create GIN index for metadata JSONB search
-CREATE INDEX IF NOT EXISTS idx_knowledge_embeddings_metadata ON knowledge_embeddings USING gin (metadata);

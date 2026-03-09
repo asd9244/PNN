@@ -143,34 +143,4 @@ public class BatchController {
 
         return ResponseEntity.ok("supplements 적재 배치가 백그라운드에서 시작되었습니다. 서버 로그를 확인하세요.");
     }
-
-    // drug_easy_info 적재 (e약은요) — 단일 페이지 테스트용
-    // 예: http://localhost:8080/api/batch/drug-easy-info?pageNo=1&numOfRows=10
-    @GetMapping("/drug-easy-info")
-    public ResponseEntity<String> runDrugEasyInfoBatch(
-            @RequestParam(defaultValue = "1") int pageNo,
-            @RequestParam(defaultValue = "10") int numOfRows) {
-
-        log.info("e약은요 적재 수동 실행. page={}, rows={}", pageNo, numOfRows);
-        String result = drugDataService.fetchAndSaveDrugEasyInfo(pageNo, numOfRows);
-        return ResponseEntity.ok(result);
-    }
-
-    // drug_easy_info 적재 (e약은요) — 전체 실행 (비동기)
-    // 예: http://localhost:8080/api/batch/drug-easy-info/all
-    @GetMapping("/drug-easy-info/all")
-    public ResponseEntity<String> runAllDrugEasyInfoBatch() {
-        log.info("e약은요 전체 적재 요청 수신");
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                String result = drugDataService.fetchAllAndSaveDrugEasyInfo();
-                log.info("e약은요 적재 배치 완료: {}", result);
-            } catch (Exception e) {
-                log.error("e약은요 적재 배치 실패", e);
-            }
-        });
-
-        return ResponseEntity.ok("e약은요 적재 배치가 백그라운드에서 시작되었습니다. 서버 로그를 확인하세요.");
-    }
 }

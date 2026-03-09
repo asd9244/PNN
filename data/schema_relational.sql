@@ -144,18 +144,3 @@ CREATE TABLE IF NOT EXISTS drug_price_master (
     atc_code VARCHAR(255)
 );
 
--- Ingredient Efficacy Table (심평원 의약품성분약효정보 API)
--- 성분 단위 지식: drug_easy_info 보완, RAG/LLM 컨텍스트용
-CREATE TABLE IF NOT EXISTS ingredient_efficacy (
-    id BIGSERIAL PRIMARY KEY,
-    gnl_nm_cd VARCHAR(20) NOT NULL UNIQUE,
-    gnl_nm VARCHAR(255) NOT NULL,
-    meft_div_no VARCHAR(10),
-    div_nm VARCHAR(255),
-    fomn_tp_nm VARCHAR(100),
-    injc_pth_nm VARCHAR(100),
-    iqty_txt VARCHAR(500),
-    unit VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_ingredient_efficacy_gnl_nm ON ingredient_efficacy(gnl_nm);

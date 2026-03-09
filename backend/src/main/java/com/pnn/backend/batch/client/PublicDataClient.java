@@ -1,6 +1,5 @@
 package com.pnn.backend.batch.client;
 
-import com.pnn.backend.batch.dto.DrugEasyInfoResponse;
 import com.pnn.backend.batch.dto.DrugIdentificationResponse;
 import com.pnn.backend.batch.dto.DrugIngredientResponse;
 import com.pnn.backend.batch.dto.DrugPermissionDetailResponse;
@@ -29,9 +28,6 @@ public class PublicDataClient {
 
     @Value("${api.public.drug-ingredient.url}")
     private String drugIngredientUrl; // 주성분 상세정보 API URL
-
-    @Value("${api.public.drug-easy.url}")
-    private String drugEasyUrl; // e약은요 API URL
 
     public PublicDataClient() {
         this.restClient = RestClient.builder().build();
@@ -88,26 +84,6 @@ public class PublicDataClient {
                     .body(DrugIngredientResponse.class);
         } catch (Exception e) {
             log.error("주성분 API 호출 실패 (page={}): {}", pageNo, e.getMessage());
-            return null;
-        }
-    }
-
-    public DrugEasyInfoResponse fetchDrugEasyInfo(int pageNo, int numOfRows) { // e약은요 정보 조회
-        URI uri = UriComponentsBuilder.fromHttpUrl(drugEasyUrl)
-                .queryParam("serviceKey", serviceKey)
-                .queryParam("pageNo", pageNo)
-                .queryParam("numOfRows", numOfRows)
-                .queryParam("type", "json")
-                .build()
-                .toUri();
-
-        try {
-            return restClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(DrugEasyInfoResponse.class);
-        } catch (Exception e) {
-            log.error("e약은요 API 호출 실패 (page={}): {}", pageNo, e.getMessage());
             return null;
         }
     }

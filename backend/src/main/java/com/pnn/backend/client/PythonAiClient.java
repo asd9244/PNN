@@ -11,9 +11,10 @@ public class PythonAiClient {
 
     private final RestClient restClient; // Spring 6.1+ 내장 HTTP 클라이언트
 
-    public PythonAiClient(@Value("${ai.server.url}") String aiServerUrl) { // application.properties에서 URL 주입
+    // application.properties에서 URL 주입
+    public PythonAiClient(@Value("${ai.server.url}") String aiServerUrl) {
         this.restClient = RestClient.builder()
-                .baseUrl(aiServerUrl) // Python 서버 기본 URL 설정
+                .baseUrl(aiServerUrl)
                 .build();
     }
 

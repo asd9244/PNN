@@ -42,7 +42,6 @@ alwaysApply: false
 | `/api/batch/drug-identification` | 낱알식별 API → drugs, drug_identification 적재 |
 | `/api/batch/drug-enrich` | 허가정보 API → drugs 보강 |
 | `/api/batch/drug-ingredient` | 주성분 상세 API → drug_ingredients 적재 |
-| `/api/batch/drug-easy-info` | e약은요 API → drug_easy_info 적재 |
 | `/api/batch/supplement` | 식품안전나라 API → supplements 적재 |
 
 - 각 배치에 `/all` 경로가 있으면 비동기 전체 실행 (예: `/api/batch/drug-identification/all`)
