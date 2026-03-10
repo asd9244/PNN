@@ -1,5 +1,6 @@
 package com.pnn.backend.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,12 +12,11 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class NutrientInputDto {
-    // 성분명 (반드시 영문, 예: "Vitamin C")
-    private String name;
 
-    // 함량 (선택)
-    private Double amount;
+    @NotBlank(message = "성분명(name)은 필수입니다")
+    private String name; // 영문, 예: "Vitamin C"
 
-    // 단위 (선택, 예: "mg")
-    private String unit;
+    private Double amount; // 함량 (선택)
+
+    private String unit; // 단위 (선택, 예: "mg")
 }

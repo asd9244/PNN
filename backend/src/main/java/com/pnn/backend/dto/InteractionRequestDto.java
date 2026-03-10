@@ -1,5 +1,9 @@
 package com.pnn.backend.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,9 +18,12 @@ import java.util.List;
 @NoArgsConstructor
 public class InteractionRequestDto {
 
-    // 검사할 대상 처방약의 고유 ID (drugs 테이블의 id)
-    private Long drugId;
+    @NotNull(message = "drugId는 필수입니다")
+    @Positive(message = "drugId는 양수여야 합니다")
+    private Long drugId; // drugs 테이블의 id
 
-    // 복용 중인 영양제 목록
+    @NotNull(message = "supplements는 필수입니다")
+    @NotEmpty(message = "supplements는 비어 있을 수 없습니다")
+    @Valid
     private List<SupplementInputDto> supplements;
 }

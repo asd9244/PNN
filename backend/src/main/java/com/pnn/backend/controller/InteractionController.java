@@ -2,6 +2,7 @@ package com.pnn.backend.controller;
 
 import com.pnn.backend.dto.InteractionRequestDto;
 import com.pnn.backend.dto.InteractionResponseDto;
+import jakarta.validation.Valid;
 import com.pnn.backend.service.InteractionCheckService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class InteractionController {
          * @return 상호작용 검사 결과 (summary, source, interactions 목록)
          */
         @PostMapping("/check")
-        public ResponseEntity<InteractionResponseDto> checkInteraction(@RequestBody InteractionRequestDto request) {
+        public ResponseEntity<InteractionResponseDto> checkInteraction(@Valid @RequestBody InteractionRequestDto request) {
                 log.info("상호작용 검사 요청 수신. drugId={}, supplements 수={}",
                                 request.getDrugId(),
                                 request.getSupplements() != null ? request.getSupplements().size() : 0);

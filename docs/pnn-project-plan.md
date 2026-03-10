@@ -58,7 +58,7 @@
   │       └─ 미매칭 시 성분만 모아서 LLM으로 전달 (약 2.5만 drug vs 2천 성분 룰)
   │
   ├─ (7) 1차 필터에서 미결정인 건 → Python AI 서버로 심층 분석 요청
-  │       └─ RAG(pgvector 검색) + LLM 상호작용 분석
+  │       └─ LLM 상호작용 분석 (RAG 미사용)
   │
   ▼
 [응답]
@@ -109,7 +109,7 @@
   │       └─ CAUTION/WARNING nutrient 수집 → 경고 목록 생성
   │
   ├─ (5) 금기 성분 정보 + 처방약 정보 → Python AI 서버로 추천 요청
-  │       └─ RAG(pgvector) + LLM 기반 안전 영양 성분 추천 + 사유 생성
+  │       └─ LLM 기반 안전 영양 성분 추천 + 사유 생성
   │
   ├─ (6) 추천 성분명 → URLEncoder → 제휴 쇼핑몰 동적 검색 URL 생성
   │
@@ -155,7 +155,7 @@
 **Python AI Server (FastAPI 추천)**
 
 - OCR 파이프라인: Google Vision API로 텍스트 추출 → GPT-4o로 JSON 정형화
-- RAG 파이프라인: pgvector에서 관련 문헌 검색 → LLM으로 상호작용 심층 분석
+- RAG 파이프라인: RAG/pgvector 임베딩을 제거하고, 1차 룰(DB)을 중심으로 분석. 미결정 건만 LLM 프롬프트로 넘겨 심층 분석
 - 영양제 제품명 매칭: 사용자 입력/OCR 결과 → LLM으로 제품 후보 추론
 - (향후) 전용 경량 모델 (NER, 분류 등)
 
@@ -222,8 +222,8 @@
 
 | 항목 | 선택 | 이유 |
 | --- | --- | --- |
-| RDBMS | PostgreSQL 18.1 (로컬 확인 완료) | JSONB + pgvector 동시 활용, 하나의 DB로 통합 |
-| 벡터 확장 | pgvector | 별도 벡터 DB 없이 PostgreSQL 내에서 유사도 검색 |
+| RDBMS | PostgreSQL 18.1 (로컬 확인 완료) | JSONB 동시 활용, 하나의 DB로 통합 |
+| 벡터 확장 | pgvector | (현재 미사용) 향후 기능 확장을 대비해 유지 |
 | 인덱스 전략 | HNSW (pgvector) | 근사 최근접 이웃 검색, 속도/정확도 균형 |
 
 ### 4.4 외부 API / 데이터 소스
@@ -343,10 +343,10 @@ Response (200):
     "interactions": [
       {
         "nutrient": "Magnesium",
-        "drug_ingredient": "Tetracycline",
+        "contraindicated_drug_ingredient": "Tetracycline",
         "level": "CAUTION | WARNING | SAFE | SYNERGY",
         "description": "string",
-        "action": "string",
+        "action_guide": "string",
         "sources": ["string"]
       }
     ]
@@ -486,14 +486,13 @@ knowledge_embeddings (벡터 검색, 독립)
 - **Fallback**: drugs.main_ingr_eng 없으면(상세정보 미적재) 약품명만 LLM에 전달 → 안내문 제공
 - **관리**: `interaction_rules`는 SUPP.AI JSON 배치 적재
 
-### 8.2 LLM + RAG 2차 분석 (Python)
+### 8.2 LLM 2차 분석 (Python)
 
 ```
 (1) 입력: 처방약 성분 + 영양제 성분 조합
-(2) pgvector 검색: 관련 문헌/지식 chunk top-K 검색
-(3) 프롬프트 구성: 시스템 프롬프트 + 검색된 문헌 + 분석 요청
-(4) GPT-4o 호출 → 구조화된 JSON 응답 생성
-(5) 결과 파싱 및 Spring으로 반환
+(2) 프롬프트 구성: 시스템 프롬프트 + 분석 요청
+(3) GPT-4o 호출 → 구조화된 JSON 응답 생성
+(4) 결과 파싱 및 Spring으로 반환
 ```
 
 ---
@@ -544,7 +543,7 @@ knowledge_embeddings (벡터 검색, 독립)
 - [ ]  영양성분 등록/조회 API
 - [ ]  Rule-based 1차 필터 (drugs.main_ingr_eng split × interaction_rules)
 - [ ]  상세정보 없는 drug fallback (약품명 → LLM → 안내문)
-- [ ]  RAG + LLM 2차 분석 파이프라인
+- [ ]  LLM 2차 분석 파이프라인
 - [ ]  충돌 검사 통합 API
 
 ### Phase 3: Case B 구현 (추천)
@@ -601,4 +600,23 @@ knowledge_embeddings (벡터 검색, 독립)
 
 ---
 
-*마지막 수정: 2026-03-08 (Case A/B 플랜 반영, drugs.main_ingr_eng, ingredient_mapping 삭제)*
+## 13. 향후 서비스 적용 시 제언 (Lessons Learned)
+
+### 13.1 LLM 환각(Hallucination) 제어의 한계와 대안
+초기 기획에서는 논문 원문(Evidence)을 LLM(특히 경량 로컬 모델)에 제공하여 약학적 상호작용을 추론 및 요약하게 하려 했으나, 실제 테스트 결과 **경량 모델의 심각한 환각 현상**이 발견되었습니다. 논문에 없는 부작용을 지어내거나, 긍정적인 현상을 위험으로 잘못 해석하는 등 의료/약학 도메인에서 치명적인 오류를 발생시켰습니다.
+
+**[적용 제언]**
+1. **Rule-based 중심의 보수적 접근**: LLM이 실시간으로 상호작용을 "추론"하게 하는 것은 매우 위험합니다. DB에 적재된 검증된 상호작용 데이터(SUPP.AI 등)를 1차 필터(Rule-based)로 강하게 적용하고, LLM은 단순히 매칭된 결과를 "사용자가 읽기 쉽게 문장으로 다듬는(Formatting)" 역할로만 제한해야 합니다.
+2. **강력한 프롬프트 통제 (Guardrails)**: LLM을 사용해야만 한다면 프롬프트에 `[정보 통제]`, `[보수적 해석]`, `[무의미한 데이터 예외 처리]`와 같은 절대 규칙을 명시하여 모델의 자의적인 해석을 원천 차단해야 합니다. "정보가 없으면 없다고 출력하라"는 지시가 필수적입니다.
+3. **전문가 검수 프로세스 (Human-in-the-loop)**: 생성된 경고 문구나 가이드는 서비스 배포 전 최소한의 샘플링을 통해 약사 등 도메인 전문가의 검수를 거치는 프로세스가 필요합니다.
+
+### 13.2 데이터 품질과 정제의 중요성
+수집된 데이터(예: SUPP.AI)가 '상호작용이 있다'는 사실 자체는 알려주지만, 그 상호작용이 구체적으로 어떤 위험을 초래하는지(description) 명확하지 않은 경우가 많았습니다. (예: 단순히 "작용을 억제한다"고만 되어 있고, 이것이 인체에 어떤 악영향을 미치는지 설명 부재).
+
+**[적용 제언]**
+1. **데이터 전처리 강화**: 데이터 적재 시점에 불분명한 데이터는 과감히 'Caution(주의)' 등급으로 일괄 하향하거나, 사용자에게 노출하지 않는 필터링 로직이 필요합니다.
+2. **보수적인 기본값(Default) 설정**: 명확한 근거가 없는 성분 조합에 대해서는 "안전하다"가 아니라 "정보가 부족하므로 전문의와 상담하라"는 방어적인 태도를 기본값으로 취해야 법적/윤리적 리스크를 최소화할 수 있습니다.
+
+---
+
+*마지막 수정: 2026-03-10 (LLM 환각 문제 및 데이터 정제 관련 제언 추가)*

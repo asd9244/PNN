@@ -90,19 +90,33 @@ public class InteractionCheckService {
         InteractionResponseDto response = new InteractionResponseDto();
 
         if (!matchedInteractions.isEmpty()) { // 1차 DB 검사에서 충돌(매칭)이 발견된 경우 즉시 반환 (확정적 데이터)
-
             response.setSource("RULE");
             response.setSummary("DB 기반 규칙 검사에서 총 " + matchedInteractions.size() + "건의 상호작용이 발견되었습니다.");
             response.setInteractions(matchedInteractions);
             return response;
         }
 
-        // TODO: 5. 매칭되는 규칙이 하나도 없거나, 성분 정보가 없는 경우 Python AI(LLM)에 2차 분석 요청
-        log.info("1차 규칙 검사 결과 매칭 없음. Python AI 서버로 2차 분석을 요청할 예정입니다.");
-
-        response.setSource("RULE"); // 임시 (나중에 "LLM"으로 대체)
-        response.setSummary("알려진 상호작용이 없습니다. (추후 AI 분석 결과로 대체될 예정)");
-
-        return response;
+        // 5. 매칭되는 규칙이 없거나, 성분 정보가 없는 경우 Python AI에 2차 분석/안내문 생성 요청
+        log.info("1차 규칙 검사 결과 매칭 없음 (성분 정보 부재 포함). Python AI 서버로 분석/안내문을 요청합니다. drugName: {}, 성분수: {}", 
+                 drug.getItemName(), drugIngredients.size());
+        
+        try {
+            InteractionResponseDto aiResponse = pythonAiClient.analyzeInteraction(request, drug.getItemName(), drugIngredients);
+            aiResponse.setSource("LLM");
+            // AI에서 반환한 summary가 없으면 기본값
+            if (aiResponse.getSummary() == null || aiResponse.getSummary().isEmpty()) {
+                aiResponse.setSummary(drugIngredients.isEmpty() ? 
+                    "해당 약품의 영문 성분 데이터가 없어 정밀 검사를 수행할 수 없습니다. 복용 전 의사나 약사와 상담하세요." : 
+                    "알려진 상호작용이 없습니다.");
+            }
+            return aiResponse;
+        } catch (Exception e) {
+            log.error("Python AI 서버 호출 실패", e);
+            response.setSource("RULE"); // Fallback
+            response.setSummary(drugIngredients.isEmpty() ? 
+                "해당 약품의 영문 성분 데이터가 없어 정밀 검사를 수행할 수 없습니다. (AI 분석 실패)" : 
+                "알려진 상호작용이 없습니다. (AI 분석 실패)");
+            return response;
+        }
     }
 }

@@ -5,4 +5,5 @@ Swagger UI (`http://localhost:8080/swagger-ui.html`) 또는 Postman에서 테스
 ## POST /api/interaction/check
 
 - `interaction-check-request.json` — Request body 예시
+- `interaction-check-error-400.json` — 400 에러 응답 예시 (Validation 실패, drugId 미존재 등)
 - `drugId`는 DB에 존재하는 `drugs.id` 값으로 변경하세요. (예: `SELECT id FROM drugs LIMIT 1;`)
