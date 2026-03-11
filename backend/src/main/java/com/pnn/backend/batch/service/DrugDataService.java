@@ -337,13 +337,6 @@ public class DrugDataService {
             ingredient.setMainIngrEng(item.getMainIngrEng());
 
             drugIngredientRepository.save(ingredient);
-
-            // drugs.main_ingr_eng에 drug당 1건만 저장 (중복 제거)
-            if ((drug.getMainIngrEng() == null || drug.getMainIngrEng().isBlank())
-                    && item.getMainIngrEng() != null && !item.getMainIngrEng().isBlank()) {
-                drug.setMainIngrEng(item.getMainIngrEng());
-                drugRepository.save(drug);
-            }
             count++;
         }
         return count;

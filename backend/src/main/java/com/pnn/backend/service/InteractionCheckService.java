@@ -36,18 +36,22 @@ public class InteractionCheckService {
 
         // 1. Drug 정보 조회 및 예외 처리
         // 클라이언트가 보낸 drugId가 DB에 없으면 에러를 발생시킵니다.
-        Drug drug = drugRepository.findById(request.getDrugId())
+        Drug drug = drugRepository.findByIdWithIngredients(request.getDrugId())
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 처방약을 찾을 수 없습니다. id: " + request.getDrugId()));
 
-        // 2. 주성분(main_ingr_eng) 가져와서 "/" 기준으로 분리하기
-        String rawIngredients = drug.getMainIngrEng();
+        // 2. 주성분(main_ingr_eng) 가져와서 분리하기 (DrugIngredient 엔티티 활용)
         List<String> drugIngredients = new ArrayList<>();
-
-        if (rawIngredients != null && !rawIngredients.trim().isEmpty()) {
-            // 예: "Acetaminophen/Guaifenesin" -> ["Acetaminophen", "Guaifenesin"]
-            drugIngredients = Arrays.asList(rawIngredients.split("/"));
-        } else {
-            // 상세 성분 정보가 없는 약품의 경우 처리 로직 (TODO: 약품명으로 2차 검사 바로 넘기기)
+        
+        if (drug.getIngredients() != null && !drug.getIngredients().isEmpty()) {
+            for (var ingredient : drug.getIngredients()) {
+                if (ingredient.getMainIngrEng() != null && !ingredient.getMainIngrEng().trim().isEmpty()) {
+                    drugIngredients.add(ingredient.getMainIngrEng().trim());
+                }
+            }
+        }
+        
+        if (drugIngredients.isEmpty()) {
+            // 상세 성분 정보가 없는 약품의 경우 처리 로직 (약품명으로 2차 검사 바로 넘기기)
             log.warn("처방약(ID: {})의 영문 주성분(main_ingr_eng) 정보가 없습니다.", drug.getId());
         }
 

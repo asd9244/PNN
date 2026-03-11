@@ -50,8 +50,8 @@
   │
   ├─ (4) 사용자가 식별/선택한 신규 처방약 → drug_id 확보
   │
-  ├─ (5) drug_id → drugs.main_ingr_eng 조회 → "/" split → [영문 성분 목록]
-  │       └─ main_ingr_eng 없음(상세정보 미적재) → 약품명만 LLM에 전달 → 안내문 제공
+  ├─ (5) drug_id → drug_ingredients.main_ingr_eng 조회 → [영문 성분 목록]
+  │       └─ drug_ingredients 없음(상세정보 미적재) → 약품명만 LLM에 전달 → 안내문 제공
   │
   ├─ (6) Rule-based 1차 필터링 (Spring 내부)
   │       └─ (drug_ingredient, nutrient) × interaction_rules 매칭
@@ -103,10 +103,10 @@
   │
   ├─ (2) user_drugs에서 drug_id 목록 조회 (복수 drug — 추후 별도 설계)
   │
-  ├─ (3) 각 drug_id → drugs.main_ingr_eng 조회 → "/" split → [영문 성분 목록]
+  ├─ (3) 각 drug_id → drug_ingredients.main_ingr_eng 조회 → [영문 성분 목록]
   │
-  ├─ (4) 각 drug 성분에 대해 interaction_rules 조회 (findByDrugIngredient)
-  │       └─ CAUTION/WARNING nutrient 수집 → 경고 목록 생성
+  ├─ (4) 각 drug 성분에 대해 interaction_rules 조회 (findByDrugIngredientIn)
+  │       └─ 매칭된 모든 룰을 수집 → 경고(Warning) 목록 생성 (등급 검사 없음)
   │
   ├─ (5) 금기 성분 정보 + 처방약 정보 → Python AI 서버로 추천 요청
   │       └─ LLM 기반 안전 영양 성분 추천 + 사유 생성
@@ -332,7 +332,7 @@ Content-Type: application/json
 
 Request:
   {
-    "drug": { "id": "string", "name": "string", "ingredients": ["string"] },  // ingredients: drugs.main_ingr_eng split (영문)
+    "drug": { "id": "string", "name": "string", "ingredients": ["string"] },  // ingredients: drug_ingredients.main_ingr_eng (영문)
     "supplements": [
       { "name": "string", "nutrients": [{ "name": "string", "amount": number, "unit": "string" }] }  // name: 영문
     ]
@@ -426,7 +426,7 @@ Response (200):
 | 테이블 | 주요 필드 | 데이터 소스 | 비고 |
 | --- | --- | --- | --- |
 | `users` | id, email, password_hash, created_at | 직접 입력 | 사용자 계정 |
-| `drugs` | id, item_seq, item_name, entp_name, etc_otc_code, chart, material_name, main_item_ingr, ingr_name, **main_ingr_eng**, atc_code, total_content, big_prdt_img_url | 의약품 허가정보/상세 API, 주성분 상세 API | 의약품 마스터. main_ingr_eng는 drug당 1건(주성분 영문, "/" 구분). Case A/B 1차 필터용 |
+| `drugs` | id, item_seq, item_name, entp_name, etc_otc_code, chart, material_name, main_item_ingr, ingr_name, atc_code, total_content, big_prdt_img_url | 의약품 허가정보/상세 API | 의약품 마스터. 주성분 영문은 drug_ingredients 테이블에서 1:N으로 관리 |
 | `drug_identification` | id, drug_id(FK), drug_shape, color_class1, color_class2, print_front, print_back, line_front, line_back, form_code_name, item_image, class_name | 낱알식별 API | 낱알 외형정보. drugs와 ITEM_SEQ로 연결 |
 | `drug_ingredients` | id, drug_id(FK), mtral_code, mtral_nm, qnt, ingd_unit_cd, main_ingr_eng | 주성분 상세 API | 의약품별 주성분 목록. 1:N 관계 |
 | `contraindications` | id, ingredient_name1, ingredient_code1, product_code1, product_name1, company_name1, ingredient_name2, ingredient_code2, product_code2, product_name2, company_name2, notice_no, notice_date, reason | 병용금기 CSV (~54만건) | 약물 간 병용금기 조합. 1차 필터에 활용 |
@@ -450,8 +450,7 @@ Response (200):
 
 ```
 users ─┬─ user_drugs ── drugs ─┬─ drug_identification (1:1)
-       │                       ├─ drug_ingredients (1:N, RAG용)
-       │                       └─ drugs.main_ingr_eng (drug당 1건, 1차 필터용)
+       │                       └─ drug_ingredients (1:N, main_ingr_eng로 Case A/B 1차 필터용)
        └─ user_supplements     └─ interaction_rules (영문 drug_ingredient × nutrient)
                                   drug_price_master (표준코드 매핑)
 supplements (건강기능식품 마스터, 독립)
@@ -471,19 +470,19 @@ knowledge_embeddings (벡터 검색, 독립)
 ### 8.1 Rule-based 1차 필터 (Spring)
 
 ```
-[Case A] drug_id → drugs.main_ingr_eng → "/" split → [영문 성분]
+[Case A] drug_id → drug_ingredients.main_ingr_eng → [영문 성분]
          user_supplements.nutrients → [영문]
          (drug_ingredient, nutrient) × interaction_rules 매칭
 
-[Case B] user_drugs → drug_id들 → drugs.main_ingr_eng split
-         findByDrugIngredient → CAUTION/WARNING nutrient 수집
+[Case B] user_drugs → drug_id들 → drug_ingredients.main_ingr_eng
+         findByDrugIngredientIn → 조회된 모든 룰을 경고(Warning) 대상으로 수집 (등급 필터링 제거)
 
   ├─ 매칭 있음 → 즉시 결과 반환 (확정적 충돌/안전)
   └─ 매칭 없음 → 성분만 모아서 Python LLM으로 전달 (약 2.5만 drug vs 2천 성분 룰)
 ```
 
 - **데이터**: drug_ingredient, nutrient 모두 **영문**. 한/영 매핑 테이블(ingredient_mapping) 사용하지 않음
-- **Fallback**: drugs.main_ingr_eng 없으면(상세정보 미적재) 약품명만 LLM에 전달 → 안내문 제공
+- **Fallback**: drug_ingredients 없으면(상세정보 미적재) 약품명만 LLM에 전달 → 안내문 제공
 - **관리**: `interaction_rules`는 SUPP.AI JSON 배치 적재
 
 ### 8.2 LLM 2차 분석 (Python)
@@ -541,14 +540,14 @@ knowledge_embeddings (벡터 검색, 독립)
 - [ ]  처방약 검색 API (모양/색/각인 기반)
 - [ ]  OCR 파이프라인 (Vision + GPT-4o 정형화, **성분명 영문 출력**)
 - [ ]  영양성분 등록/조회 API
-- [ ]  Rule-based 1차 필터 (drugs.main_ingr_eng split × interaction_rules)
+- [ ]  Rule-based 1차 필터 (drug_ingredients.main_ingr_eng × interaction_rules)
 - [ ]  상세정보 없는 drug fallback (약품명 → LLM → 안내문)
 - [ ]  LLM 2차 분석 파이프라인
 - [ ]  충돌 검사 통합 API
 
 ### Phase 3: Case B 구현 (추천)
 
-- [ ]  상호작용 DB 기반 금기 성분 추출 로직 (drugs.main_ingr_eng split × findByDrugIngredient)
+- [ ]  상호작용 DB 기반 금기 성분 추출 로직 (drug_ingredients.main_ingr_eng × findByDrugIngredient)
 - [ ]  복수 drug 처리 로직 설계
 - [ ]  LLM 기반 안전 영양 성분 추천 API
 - [ ]  딥링크 URL 생성 로직
@@ -576,10 +575,11 @@ knowledge_embeddings (벡터 검색, 독립)
 | 항목 | 결정 |
 | --- | --- |
 | nutrient 저장 형식 | LLM이 OCR→JSON 변환 시 **영문으로 출력** (Vitamin C, Magnesium 등). ingredient_mapping 불필요 |
-| drug 성분 조회 | drugs.main_ingr_eng split("/") → interaction_rules 직접 비교 |
-| 상세정보 없는 drug | main_ingr_eng 없으면(낱알 2.5만 vs 상세 3,800건) 약품명만 LLM에 전달 → 안내문 제공 |
+| drug 성분 조회 | drug_ingredients.main_ingr_eng → interaction_rules 직접 비교 |
+| 상세정보 없는 drug | drug_ingredients 없으면(상세정보 미적재) 약품명만 LLM에 전달 → 안내문 제공 |
 | interaction_rules 미매칭 | 성분만 모아서 LLM으로 전달. 수작업 정제 불가 수준의 데이터 |
-| 복수 drug (Case B) | 처방은 대부분 복수 → 추후 별도 설계 |
+| 복수 drug (Case B) | 여러 처방약 성분에 대해 `findByDrugIngredientIn`으로 교집합 회피 목록 생성 |
+| 상호작용 등급 (Case B) | 환각 통제 및 보수적 접근을 위해 `WARNING/CAUTION` 필터링 제거. 조회된 모든 룰을 경고 대상으로 간주 |
 | 표기 불일치 (Vitamin C vs Ascorbic acid) | 수작업 정제 불가, LLM 비용 부담 → 현실적 리스크 수용 |
 
 ---
@@ -605,10 +605,10 @@ knowledge_embeddings (벡터 검색, 독립)
 ### 13.1 LLM 환각(Hallucination) 제어의 한계와 대안
 초기 기획에서는 논문 원문(Evidence)을 LLM(특히 경량 로컬 모델)에 제공하여 약학적 상호작용을 추론 및 요약하게 하려 했으나, 실제 테스트 결과 **경량 모델의 심각한 환각 현상**이 발견되었습니다. 논문에 없는 부작용을 지어내거나, 긍정적인 현상을 위험으로 잘못 해석하는 등 의료/약학 도메인에서 치명적인 오류를 발생시켰습니다.
 
-**[적용 제언]**
-1. **Rule-based 중심의 보수적 접근**: LLM이 실시간으로 상호작용을 "추론"하게 하는 것은 매우 위험합니다. DB에 적재된 검증된 상호작용 데이터(SUPP.AI 등)를 1차 필터(Rule-based)로 강하게 적용하고, LLM은 단순히 매칭된 결과를 "사용자가 읽기 쉽게 문장으로 다듬는(Formatting)" 역할로만 제한해야 합니다.
-2. **강력한 프롬프트 통제 (Guardrails)**: LLM을 사용해야만 한다면 프롬프트에 `[정보 통제]`, `[보수적 해석]`, `[무의미한 데이터 예외 처리]`와 같은 절대 규칙을 명시하여 모델의 자의적인 해석을 원천 차단해야 합니다. "정보가 없으면 없다고 출력하라"는 지시가 필수적입니다.
-3. **전문가 검수 프로세스 (Human-in-the-loop)**: 생성된 경고 문구나 가이드는 서비스 배포 전 최소한의 샘플링을 통해 약사 등 도메인 전문가의 검수를 거치는 프로세스가 필요합니다.
+**[적용 제언 및 확정 사항]**
+1. **Rule-based 중심의 보수적 접근**: LLM이 실시간으로 상호작용을 "추론"하게 하는 것은 매우 위험합니다. DB에 적재된 검증된 상호작용 데이터(SUPP.AI 등)를 1차 필터(Rule-based)로 강하게 적용합니다. LLM은 이 필터를 통과하지 못한 "위험 성분"을 명확히 전달받고, 이를 회피하는 조건 내에서만 보완적 추천을 수행해야 합니다.
+2. **상호작용 등급 필터링 폐기 (Case B)**: 데이터 정제 과정에서 LLM에게 등급(WARNING vs CAUTION)을 강제로 분류하게 하는 행위 자체가 환각을 유발했습니다. 따라서, DB에 존재하는 상호작용은 그 자체로 위험 신호로 간주하여 **별도의 `WARNING/CAUTION` 등급 필터링 없이 모두 경고(Warning) 대상으로 일괄 처리**합니다.
+3. **강력한 프롬프트 통제 (Guardrails)**: LLM을 사용해야만 한다면 프롬프트에 `[정보 통제]`, `[보수적 해석]`, `[무의미한 데이터 예외 처리]`와 같은 절대 규칙을 명시하여 모델의 자의적인 해석을 원천 차단해야 합니다. 특히 "질병을 치료한다"는 뉘앙스는 절대 금지합니다.
 
 ### 13.2 데이터 품질과 정제의 중요성
 수집된 데이터(예: SUPP.AI)가 '상호작용이 있다'는 사실 자체는 알려주지만, 그 상호작용이 구체적으로 어떤 위험을 초래하는지(description) 명확하지 않은 경우가 많았습니다. (예: 단순히 "작용을 억제한다"고만 되어 있고, 이것이 인체에 어떤 악영향을 미치는지 설명 부재).

@@ -12,4 +12,7 @@ public interface InteractionRuleRepository extends JpaRepository<InteractionRule
 
     // 특정 처방약 성분에 대한 모든 상호작용 룰 조회
     List<InteractionRule> findByDrugIngredient(String drugIngredient);
+
+    // 복수 처방약 성분에 대한 모든 상호작용 룰 조회 (Case B 금기 성분 추출용)
+    List<InteractionRule> findByDrugIngredientIn(List<String> drugIngredients);
 }

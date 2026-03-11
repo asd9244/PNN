@@ -2,11 +2,14 @@ package com.pnn.backend.client;
 
 import com.pnn.backend.dto.InteractionRequestDto;
 import com.pnn.backend.dto.InteractionResponseDto;
+import com.pnn.backend.dto.RecommendationAnalyzeRequestDto;
+import com.pnn.backend.dto.RecommendationAnalyzeResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component // Spring Bean으로 등록
@@ -52,6 +55,24 @@ public class PythonAiClient {
                     .body(InteractionResponseDto.class);
         } catch (Exception e) {
             throw new RuntimeException("AI 서버 호출 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    /**
+     * Python AI 서버에 안전 영양제 추천 분석(Case B)을 요청합니다.
+     * 
+     * @param request 처방약 목록과 금기 성분 목록을 포함한 요청 DTO
+     * @return AI가 생성한 안전 영양제 추천 결과
+     */
+    public RecommendationAnalyzeResponseDto analyzeSafeNutrients(RecommendationAnalyzeRequestDto request) {
+        try {
+            return restClient.post()
+                    .uri("/api/v1/recommendation/analyze-safe")
+                    .body(request)
+                    .retrieve()
+                    .body(RecommendationAnalyzeResponseDto.class);
+        } catch (Exception e) {
+            throw new RuntimeException("AI 서버 호출(안전 성분 추천) 중 오류가 발생했습니다.", e);
         }
     }
 }

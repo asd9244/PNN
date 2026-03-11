@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS drugs (
     material_name VARCHAR(255),
     main_item_ingr VARCHAR(255),
     ingr_name VARCHAR(255),
-    main_ingr_eng TEXT,
     atc_code VARCHAR(255),
     total_content VARCHAR(255),
     big_prdt_img_url VARCHAR(1000)

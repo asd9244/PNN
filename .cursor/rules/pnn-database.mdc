@@ -32,7 +32,7 @@ alwaysApply: true
 | 테이블 | 주요 필드 | 비고 |
 |--------|-----------|------|
 | `drug_identification` | drug_id, drug_shape, color_class1/2, print_front/back, line_front/back | 낱알식별 정보 (drugs 1:1) |
-| `drug_ingredients` | drug_id, mtral_nm, qnt, main_ingr_eng | 의약품 성분 (drugs N:1). main_ingr_eng → drugs.main_ingr_eng |
+| `drug_ingredients` | drug_id, mtral_nm, qnt, main_ingr_eng | 의약품 성분 (drugs N:1). Case A/B 1차 필터용 영문 성분 |
 | `supplements` | prdlst_nm, prdlst_report_no, primary_fnclty, rawmtrl_nm 등 | 건강기능식품 마스터 (식품안전나라 API) |
 | `contraindications` | ingredient_name1/2, product_name1/2, reason | 의약품안전관리원 병용금기 원시 데이터 |
 | `drug_price_master` | std_code, item_name, bar_code 등 | 심평원 약가 마스터 (코드 매핑용) |
