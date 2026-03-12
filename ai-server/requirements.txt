@@ -10,3 +10,4 @@ requests
 psycopg[binary]
 pgvector
 tqdm
+pypdf

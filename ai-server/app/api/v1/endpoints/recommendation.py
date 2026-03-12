@@ -21,7 +21,7 @@ def recommend_safe_nutrients(request: RecommendationAnalyzeRequest):
 
         # 2. LLM 호출 (JSON 출력 보장)
         # TODO: 로컬에서 성능이 더 좋은 모델(exaone3.5 등)이 있다면 해당 모델명으로 변경 권장
-        llm_response_text = chat(prompt=user_prompt, system=system_prompt, model="exaone3.5")
+        llm_response_text = chat(prompt=user_prompt, system=system_prompt, model="exaone3.5:7.8b")
 
         # 3. JSON 파싱
         # LLM이 markdown 블록(```json ... ```)을 붙일 경우를 대비한 간단한 클렌징

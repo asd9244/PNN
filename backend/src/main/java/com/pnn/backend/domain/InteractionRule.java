@@ -26,6 +26,9 @@ public class InteractionRule {
     @Column(columnDefinition = "TEXT")
     private String description; // 상세 설명
 
+    @Column(name = "description_kr", columnDefinition = "TEXT")
+    private String descriptionKr; // 상세 설명 (한국어)
+
     @Column(columnDefinition = "TEXT")
     private String action; // 행동 지침 (복용 중단, 시간 간격 등)
 
