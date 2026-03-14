@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Database (PNN)
 
-<!-- 2026-03: drug_easy_info, ingredient_efficacy, knowledge_embeddings 제거. drugs + interaction_rules 중심 -->
+<!-- 2026-03-12: 기존 DB 폐기. SUPP.AI/interaction_rules → 공공데이터(dur_rules, drug_contraindication) 전환. item_seq 중심 6개 테이블 -->
 
 ## 스택
 
@@ -14,28 +14,39 @@ alwaysApply: true
 | DBMS | PostgreSQL 18.1 (로컬 확인) |
 | 접근 | Spring (JPA) + Python (psycopg) |
 
-## 정형 테이블
+## 정형 테이블 (공공데이터 기반, item_seq 중심)
 
-### 핵심 테이블 (6개)
+### 핵심 테이블 6개 (2026-03-12 구축 완료)
+
+| 테이블 | 소스 | 주요 필드 | 비고 |
+|--------|------|-----------|------|
+| `drugs_master` | 의약품 낱알식별.csv | item_seq(UNIQUE), item_name, drug_shape, color_front/back, print_front/back, line_front/back | 낱알식별·약 검색. item_seq가 모든 테이블 연결 키 |
+| `drug_ingredients` | 의약품 상세조회(주성분).csv | item_seq(FK), ingr_name_eng, ingr_name_kr | 주성분 정보. DUR·병용금기 매칭용 |
+| `drug_permit_detail` | 의약품 제품허가 상세정보.csv | item_seq, efficacy, dosage, caution, ingr_name_eng | 효능효과·용법용량·주의사항 (PDF 파싱) |
+| `dur_rules` | DUR유형별 성분 현황_*.csv 8종 | dur_ingr_name_eng, contraind_dur_ingr_name_eng, dur_type | 병용금기·임부금기·용량주의 등 DUR 규칙 |
+| `drug_contraindication` | 한국의약품안전관리원_병용금기약물 | ingr_name_1, ingr_name_2, contraind_reason | 성분명 기준 병용금기 (~54만건) |
+| `drug_easy_info` | e약은요정보.csv | item_seq(UNIQUE), efficacy, dosage, caution_use | 상비약 복약정보 |
+
+### 애플리케이션 테이블 (Spring 관리)
 
 | 테이블 | 주요 필드 | 비고 |
 |--------|-----------|------|
 | `users` | id, email, password_hash, created_at | 사용자 계정 |
-| `drugs` | id, item_seq(UNIQUE), item_name, entp_name, chart, ingr_name 등 | 의약품 마스터. item_seq가 공공데이터 연결 키 |
-| `user_drugs` | id, user_id, drug_id, start_date, is_active | 기복용 처방약 |
-| `user_supplements` | id, user_id, supplement_name, nutrients(JSONB), registered_at | 기복용 영양제 (OCR 결과 JSONB 저장) |
-| `interaction_rules` | id, drug_ingredient, nutrient, level, description, action | Rule-based 1차 필터용 (현재 비어 있음) |
+| `user_drugs` | id, user_id, item_seq(FK→drugs_master), start_date, is_active | 기복용 처방약 |
+| `user_supplements` | id, user_id, supplement_name, nutrients(JSONB), registered_at | 기복용 영양제 (OCR 결과 JSONB) |
 | `analysis_logs` | id, user_id, case_type, request(JSONB), response(JSONB), created_at | 분석 이력 로그 |
 
-### 배치 적재 테이블
+## 성분명 정규화 (필수)
 
-| 테이블 | 주요 필드 | 비고 |
-|--------|-----------|------|
-| `drug_identification` | drug_id, drug_shape, color_class1/2, print_front/back, line_front/back | 낱알식별 정보 (drugs 1:1) |
-| `drug_ingredients` | drug_id, mtral_nm, qnt, main_ingr_eng | 의약품 성분 (drugs N:1). Case A/B 1차 필터용 영문 성분 |
-| `supplements` | prdlst_nm, prdlst_report_no, primary_fnclty, rawmtrl_nm 등 | 건강기능식품 마스터 (식품안전나라 API) |
-| `contraindications` | ingredient_name1/2, product_name1/2, reason | 의약품안전관리원 병용금기 원시 데이터 |
-| `drug_price_master` | std_code, item_name, bar_code 등 | 심평원 약가 마스터 (코드 매핑용) |
+- **drug_permit_detail.ingr_name_eng**: `"Glucose/Sodium Chloride"` 등 여러 성분이 `/`로 묶여 있음
+- **DUR·병용금기**: `"clarithromycin"` 등 단일 성분명
+- **매칭 전**: 슬래시(`/`)로 split 후 단일 성분 단위로 정규화 필요
+- 정규화용 컬럼/테이블 추가 후 dur_rules·drug_contraindication과 매칭
+
+## Rule-based 1차 필터 (interaction_rules 대체)
+
+- **Case A/B**: drug_ingredients.ingr_name_eng × dur_rules, drug_contraindication 매칭
+- **폐기**: SUPP.AI 기반 interaction_rules (Actinium 등 잘못된 데이터, 매칭 사각지대 1,165개)
 
 ## JSONB 사용 규칙
 
@@ -49,6 +60,7 @@ alwaysApply: true
 1. 모든 PK는 `BIGSERIAL` 사용
 2. `created_at`, `updated_at` 타임스탬프 컬럼 필수 (`TIMESTAMPTZ DEFAULT now()`)
 3. 외래키에는 인덱스 생성
-4. `drugs` 테이블은 공공데이터(의약품 낱알식별 API) 기반 — 직접 INSERT 금지, 배치 파이프라인으로 적재
-5. `interaction_rules`는 약사/전문가 검수 후 수동 입력 또는 문헌 기반 배치 적재
-6. Spring이 트랜잭션 주체, Python은 읽기 위주
+4. `drugs_master`는 공공데이터(의약품 낱알식별) 기반 — 직접 INSERT 금지, 배치 파이프라인으로 적재
+5. DDL: `data/sql/01_drugs_master.sql` ~ `06_drug_easy_info.sql`
+6. 적재 스크립트: `data/scripts/load_*.py`, `run_ddl.py` (psql 미설치 시 psycopg로 DDL 실행)
+7. Spring이 트랜잭션 주체, Python은 읽기 위주

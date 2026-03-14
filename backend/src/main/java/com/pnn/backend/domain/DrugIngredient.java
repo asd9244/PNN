@@ -4,27 +4,53 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-@Entity // JPA 엔티티
-@Table(name = "drug_ingredients") // 테이블 이름 "drug_ingredients"
-@Getter @Setter
+/**
+ * 의약품 주성분 (drug_ingredients)
+ * drugs_master.item_seq와 1:N 관계
+ */
+@Entity
+@Table(name = "drug_ingredients")
+@Getter
+@Setter
 public class DrugIngredient {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Drug 엔티티와 N:1 관계 (FK: drug_id)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "drug_id", nullable = false) // 외래키 컬럼명 지정
-    private Drug drug;
+    @Column(name = "item_seq", nullable = false, length = 50)
+    private String itemSeq;
 
-    private String mtralCode; // 원료 코드 (MTRAL_CODE)
+    @Column(name = "entp_name", columnDefinition = "TEXT")
+    private String entpName;
 
-    private String mtralNm; // 원료명 (MTRAL_NM)
+    @Column(name = "item_name", columnDefinition = "TEXT")
+    private String itemName;
 
-    private String qnt; // 분량 (QNT)
+    @Column(name = "ingr_name_kr", columnDefinition = "TEXT")
+    private String ingrNameKr;
 
-    private String ingdUnitCd; // 단위 코드 (INGD_UNIT_CD)
+    @Column(name = "ingr_name_eng", columnDefinition = "TEXT")
+    private String ingrNameEng;
 
-    private String mainIngrEng; // 주성분 영문명 (MAIN_INGR_ENG)
+    @Column(name = "ingr_code", length = 50)
+    private String ingrCode;
+
+    @Column(name = "unit", length = 50)
+    private String unit;
+
+    @Column(name = "raw_qty", columnDefinition = "TEXT")
+    private String rawQty;
+
+    @Column(name = "seq_no", length = 50)
+    private String seqNo;
+
+    @Column(name = "total_seq", length = 50)
+    private String totalSeq;
+
+    @Column(name = "bizrno", length = 50)
+    private String bizrno;
+
+    @Column(name = "permit_no", length = 50)
+    private String permitNo;
 }

@@ -19,10 +19,9 @@ public class UserDrug {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Drug 엔티티와 N:1 관계 (FK: drug_id)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "drug_id", nullable = false)
-    private Drug drug;
+    // drugs_master.item_seq (FK)
+    @Column(name = "item_seq", nullable = false, length = 50)
+    private String itemSeq;
 
     @Column(nullable = false)
     private LocalDate startDate; // 복용 시작일
