@@ -1,17 +1,22 @@
-import os # OS 환경변수 접근을 위한 모듈
-from pydantic_settings import BaseSettings # Pydantic 기반 설정 관리를 위한 클래스
-# application.properties 설정과 같은 역할을 함.
+import os
+from pathlib import Path
+
+from pydantic_settings import BaseSettings
+
+# ai-server/.env 경로 (실행 위치와 무관하게 고정)
+_ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
+
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "PNN AI Server" # 프로젝트 이름
-    API_V1_STR: str = "/api/v1" # API 버전 접두사
-    
-    # 보안: .env에서 로드
-    OPENAI_API_KEY: str = "" # OpenAI API 키 (OCR, LLM용)
-    DATABASE_URL: str = "postgresql://postgres:1234@localhost:5432/pnn-db" # DB 연결 URL (기본값, 환경변수 우선)
+    PROJECT_NAME: str = "PNN AI Server"
+    API_V1_STR: str = "/api/v1"
+
+    # GEMINI_API_KEY: https://aistudio.google.com/apikey 에서 발급
+    GEMINI_API_KEY: str = ""
+    DATABASE_URL: str = "postgresql://postgres:1234@localhost:5432/pnn-db"
 
     class Config:
-        env_file = ".env" # .env 파일 경로 설정
-        case_sensitive = True # 환경변수 대소문자 구분
+        env_file = str(_ENV_PATH) if _ENV_PATH.exists() else ".env"
+        case_sensitive = True
 
 settings = Settings() # 설정 인스턴스 생성

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springdoc.core.annotations.ParameterObject;
 
 /**
  * 프레젠테이션 계층 (Controller)
@@ -43,8 +44,8 @@ public class DrugSearchController {
      */
     @GetMapping("/detail")
     public ResponseEntity<Page<DrugSearchResponseDto>> searchDrugDetail(
-            @ModelAttribute DrugSearchRequestDto request,
-            @PageableDefault(page = 0, size = 20) Pageable pageable) {
+            @ParameterObject @ModelAttribute DrugSearchRequestDto request,
+            @ParameterObject @PageableDefault(page = 0, size = 20) Pageable pageable) {
 
         // 로깅: 서버에 어떤 요청이 들어왔는지 기록 (문제 발생 시 추적 용이)
         log.info("약품 상세 검색 API 호출");
@@ -67,8 +68,8 @@ public class DrugSearchController {
      */
     @GetMapping("/pillIdentifier")
     public ResponseEntity<Page<DrugSearchResponseDto>> searchPillIdentifier(
-            @ModelAttribute PillIdentifyRequestDto request,
-            @PageableDefault(page = 0, size = 20) Pageable pageable) {
+            @ParameterObject @ModelAttribute PillIdentifyRequestDto request,
+            @ParameterObject @PageableDefault(page = 0, size = 20) Pageable pageable) {
 
         log.info("낱알 식별 검색 API 호출");
 
@@ -78,3 +79,4 @@ public class DrugSearchController {
         return ResponseEntity.ok(response);
     }
 }
+

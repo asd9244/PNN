@@ -2,7 +2,7 @@ fastapi
 uvicorn
 python-multipart
 python-dotenv
-ollama
+google-genai
 pydantic
 pydantic-settings
 requests

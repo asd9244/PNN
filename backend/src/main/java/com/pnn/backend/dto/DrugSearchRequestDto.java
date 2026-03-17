@@ -14,14 +14,14 @@ import lombok.Setter;
 @Setter
 public class DrugSearchRequestDto {
 
-    private String itemName;   // 약품명
-    private String entpName;   // 제조사(업체)명
+    private String itemName; // 약품명
+    private String entpName; // 제조사(업체)명
     private String ingredient; // 성분명 (한글/영문 모두 검색)
-    
+
     // 이 클래스 내 필드들이 모두 비어있는지 확인하는 편의 메서드
     public boolean isEmpty() {
         return (itemName == null || itemName.trim().isEmpty()) &&
-               (entpName == null || entpName.trim().isEmpty()) &&
-               (ingredient == null || ingredient.trim().isEmpty());
+                (entpName == null || entpName.trim().isEmpty()) &&
+                (ingredient == null || ingredient.trim().isEmpty());
     }
 }

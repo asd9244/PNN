@@ -45,8 +45,8 @@
 [Spring Boot - 메인 백엔드]
   │
   ├─ (2) Python AI 서버로 OCR + 정형화 요청
-  │       ├─ Google Cloud Vision API → 텍스트 추출
-  │       └─ OpenAI GPT-4o → JSON 정형화 (성분명은 반드시 영문으로 출력)
+  │       ├─ PaddleOCR-VL-1.5 (로컬) → 텍스트 추출
+  │       └─ Gemini 3 Flash → JSON 정형화 (성분명은 반드시 영문으로 출력)
   │
   ├─ (3) 정형화된 영양제 데이터(JSON) 수신 및 저장 (user_supplements.nutrients, 영문)
   │
@@ -151,9 +151,9 @@
 
 **↓** (내부망 REST API)
 
-**Python AI Server (FastAPI 추천)**
+**Python AI Server (FastAPI)**
 
-- OCR 파이프라인: Google Vision API로 텍스트 추출 → GPT-4o로 JSON 정형화
+- OCR 파이프라인: PaddleOCR-VL-1.5(로컬)로 텍스트 추출 → Gemini 3 Flash로 JSON 정형화
 - Case A: 처방약 성분 + 영양제 성분 → LLM 상호작용 분석
 - Case B: 처방약 성분 → LLM 금기 경고 + 안전 성분 추천
 - 영양제 제품명 매칭: 사용자 입력/OCR 결과 → LLM으로 제품 후보 추론
@@ -182,7 +182,7 @@
 | 레이어 | 역할 | 비고 |
 | --- | --- | --- |
 | **Spring Boot** | 인증/권한, 프로필 CRUD, 처방약 검색·낱알식별(dur_rules/drug_contraindication 연동), drug 정보 수집, Python 호출 오케스트레이션, 응답 조합/가공, DB 트랜잭션 | 클라이언트의 **유일한 진입점** |
-| **Python AI Server** | OCR 파이프라인(Vision+GPT-4o 정형화), Case A/B LLM 분석(상호작용·추천), 영양제 제품명 매칭, 향후 전용 모델 | Spring에서만 호출 (내부망) |
+| **Python AI Server** | OCR 파이프라인(PaddleOCR-VL-1.5 + Gemini 3 Flash 정형화), Case A/B LLM 분석(Gemini 3 Flash), 영양제 제품명 매칭, 향후 전용 모델 | Spring에서만 호출 (내부망) |
 | **PostgreSQL** | 정형 데이터(의약품, 사용자, 프로필), JSONB(OCR 결과, 분석 로그), pgvector(상호작용/영양소 고갈 지식 임베딩) | Spring·Python 양쪽에서 접근 |
 
 ### 3.3 설계 원칙
@@ -211,12 +211,12 @@
 
 | 항목 | 선택 | 이유 |
 | --- | --- | --- |
-| Framework | FastAPI (추천) 또는 Flask | 비동기 지원, 자동 OpenAPI 문서, 타입 힌트 |
+| Framework | FastAPI | 비동기 지원, 자동 OpenAPI 문서, 타입 힌트 |
 | Language | Python 3.14.2 (로컬 확인 완료) | AI/ML 생태계 최적 |
-| OpenAI SDK | openai (공식) | GPT-4o 호출, 프롬프트 관리 |
-| OCR | Google Cloud Vision API | 다국어/표 구조 인식 강점 |
+| LLM (Case A/B) | Gemini 3 Flash (gemini-3-flash-preview) | google-generativeai SDK. 속도·가성비·추론 균형. Input $0.50/M, Output $3/M |
+| OCR | PaddleOCR-VL-1.5 (로컬) | 무료 로컬 모델. 영양성분표 텍스트 추출 |
 | 벡터 검색 | psycopg + pgvector | PostgreSQL 내 벡터 검색, 별도 DB 불필요 |
-| 임베딩 | OpenAI text-embedding-3-small/large | pgvector에 저장할 임베딩 생성 |
+| 임베딩 | (미사용) | 향후 pgvector 확장 시 OpenAI 또는 Google 임베딩 검토 |
 
 ### 4.3 Database
 
@@ -231,8 +231,8 @@
 | API | 용도 | 호출 주체 |
 | --- | --- | --- |
 | 공공데이터포털 - 의약품 낱알식별 정보 | 처방약 DB 배치 적재 (모양/색/각인/이니셜) | Spring (Batch) |
-| Google Cloud Vision API | 영양성분표 이미지 → 텍스트 추출 | Python |
-| OpenAI GPT-4o | OCR 텍스트 → JSON 정형화, 상호작용 심층 분석, 제품명 추론 | Python |
+| PaddleOCR-VL-1.5 | 영양성분표 이미지 → 텍스트 추출 (로컬 무료) | Python |
+| Google Gemini 3 Flash API | OCR 텍스트 → JSON 정형화, Case A/B 상호작용 심층 분석, 제품명 추론 | Python |
 | 제휴 커머스 (아이허브 등) | 추천 성분 → 검색 URL 딥링크 생성 | Spring (URL 생성만) |
 
 ### 4.5 로컬 개발 환경 현황 (2026-03-05 확인)
@@ -293,15 +293,15 @@
 | 경로 | 방법 | 처리 |
 | --- | --- | --- |
 | **텍스트 입력** | 사용자가 제품명 직접 입력 | Spring → Python `/match-supplement` → LLM이 제품 후보 추론 → 사용자 확인 |
-| **제품명 촬영** | 제품 라벨/포장 사진 촬영 | Spring → Python → Vision OCR → LLM 제품명 추출 → 사용자 확인 |
+| **제품명 촬영** | 제품 라벨/포장 사진 촬영 | Spring → Python → PaddleOCR-VL-1.5 → Gemini 3 Flash 제품명 추출 → 사용자 확인 |
 
 ### 영양성분 등록
 
 ```
 영양성분표 촬영 (Client)
 → Spring → Python OCR Pipeline
-  → Google Vision API: 이미지 → Raw Text
-  → GPT-4o: Raw Text → 정형 JSON (성분명은 반드시 영문으로 출력)
+  → PaddleOCR-VL-1.5: 이미지 → Raw Text
+  → Gemini 3 Flash: Raw Text → 정형 JSON (성분명은 반드시 영문으로 출력)
     {
       "product_name": "○○ 종합비타민",
       "servings": "1정",
@@ -434,6 +434,7 @@ Response (200):
 | DUR 유형별 성분 | `DUR유형별 성분 현황_*.csv` 8종 | 4,623 | dur_ingr_name_eng, contraind_dur_ingr_name_eng, dur_type |
 | 병용금기약물 | `한국의약품안전관리원_병용금기약물_20240625.csv` | 542,996 | ingr_name_1, ingr_name_2, contraind_reason |
 | e약은요정보 | `e약은요정보.csv` | 4,708 | item_seq, efficacy, dosage, caution_use (상비약 복약정보) |
+| 약가마스터 | `약가마스터.csv` | 약 300,000 | insur_code, main_ingr_code, atc_code (심평원 기준 코드) |
 
 **폐기**: SUPP.AI 기반 interaction_rules (품질 이슈, 매칭 사각지대 1,165개)
 
@@ -441,24 +442,25 @@ Response (200):
 
 | 테이블 | 주요 필드 | 데이터 소스 | 비고 |
 | --- | --- | --- | --- |
-| `drugs_master` | id, item_seq(UNIQUE), item_name, drug_shape, color_front/back, print_front/back, line_front/back | 의약품 낱알식별.csv | 의약품 마스터. item_seq가 모든 테이블 연결 키 |
+| `drugs_master` | id, item_seq(UNIQUE), item_name, drug_shape, color_front/back, print_front/back, line_front/back, normal_form_name | 의약품 낱알식별.csv | 의약품 마스터. item_seq가 모든 테이블 연결 키 |
 | `drug_ingredients` | id, item_seq(FK), ingr_name_eng, ingr_name_kr | 의약품 상세조회(주성분).csv | 주성분. AI 입력용, 낱알식별·검색 시 DUR·병용금기 표시용 |
-| `drug_permit_detail` | id, item_seq, efficacy, dosage, caution, ingr_name_eng | 의약품 제품허가 상세정보.csv | 효능효과·용법용량·주의사항 (PDF 파싱) |
+| `drug_permit_detail` | id, item_seq, efficacy, dosage, caution, ingr_name_eng, item_eng_name | 의약품 제품허가 상세정보.csv | 효능효과·용법용량·주의사항 (PDF 파싱) |
 | `dur_rules` | id, dur_ingr_name_eng, contraind_dur_ingr_name_eng, dur_type | DUR유형별 성분 현황 8종 | **낱알식별·검색 결과**에서 DUR 경고 표시용 (Case A/B 미사용) |
 | `drug_contraindication` | id, ingr_name_1, ingr_name_2, contraind_reason | 한국의약품안전관리원_병용금기약물 | **낱알식별·검색 결과**에서 병용금기 표시용 (Case A/B 미사용) |
 | `drug_easy_info` | id, item_seq(UNIQUE), efficacy, dosage, caution_use | e약은요정보.csv | 상비약 복약정보 |
+| `drug_price_master` | id, insur_code, main_ingr_code, atc_code | 약가마스터.csv | 심평원 약가마스터 기준 코드 |
 | `users` | id, email, password_hash, created_at | 직접 입력 | 사용자 계정 |
 | `user_drugs` | id, user_id(FK), item_seq(FK→drugs_master), start_date, is_active | 직접 입력 | 사용자 기복용 처방약 |
 | `user_supplements` | id, user_id(FK), supplement_name, nutrients(JSONB), registered_at | OCR + 직접 입력 | 사용자 기복용 영양제. nutrients는 LLM이 영문으로 출력 |
 | `analysis_logs` | id, user_id(FK), case_type(A/B), request(JSONB), response(JSONB), created_at | 시스템 생성 | 분석 이력 로그 |
 
-**DDL**: `data/sql/01_drugs_master.sql` ~ `06_drug_easy_info.sql`  
+**DDL**: `data/sql/01_drugs_master.sql` ~ `07_drug_price_master.sql`  
 **적재 스크립트**: `data/scripts/load_*.py`, `run_ddl.py`
 
 ### 7.2 벡터 테이블 (pgvector, 현재 미사용)
 
 - **현재**: Case A/B는 LLM 전담. dur_rules, drug_contraindication은 낱알식별·검색 전용. pgvector 확장은 향후 기능 확장 대비 유지
-- **임베딩 모델**: OpenAI `text-embedding-3-small` (1536차원) 또는 `text-embedding-3-large` (3072차원)
+- **임베딩 모델**: (미사용) 향후 pgvector 확장 시 OpenAI 또는 Google 임베딩 검토
 - **인덱스**: HNSW (데이터 규모에 따라 m/ef_construction 튜닝)
 
 ### 7.3 테이블 간 관계 요약
@@ -466,7 +468,8 @@ Response (200):
 ```
 drugs_master (item_seq) ─┬─ drug_ingredients (1:N, ingr_name_eng)
                          ├─ drug_permit_detail (1:1)
-                         └─ drug_easy_info (1:1, 상비약만)
+                         ├─ drug_easy_info (1:1, 상비약만)
+                         └─ drug_price_master (1:N, insur_code)
 
 drug_ingredients.ingr_name_eng ─┬─ dur_rules (DUR성분 매칭)
                                └─ drug_contraindication (ingr_name_1/2 매칭)
@@ -527,7 +530,7 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 ```
 (1) 입력: 처방약 정보(이름, 성분) + 영양제 성분 조합
 (2) 프롬프트 구성: 시스템 프롬프트 + 분석 요청
-(3) GPT-4o 호출 → 구조화된 JSON 응답 생성
+(3) Gemini 3 Flash 호출 → 구조화된 JSON 응답 생성
 (4) 결과 파싱 및 Spring으로 반환
 ```
 
@@ -565,38 +568,38 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 
 > **구현 순서 (2026-03-13 확정)**: Case A/B는 drugId를 전제로 동작하므로, **검색·낱알식별 → Case A → Case B** 순서로 구현한다.
 
-### Phase 1: 기반 구축
+### Phase 1: 기반 구축 (완료)
 
-- [ ]  Spring Boot 프로젝트 초기 세팅 (Gradle, 의존성, 패키지 구조)
-- [ ]  PostgreSQL 스키마 설계 및 초기 마이그레이션
-- [ ]  pgvector 확장 설치 및 벡터 테이블 생성
-- [ ]  Python AI 서버 프로젝트 초기 세팅 (FastAPI)
-- [ ]  Spring ↔ Python 간 기본 REST 통신 확인 (Health Check)
+- [x]  Spring Boot 프로젝트 초기 세팅 (Gradle, 의존성, 패키지 구조)
+- [x]  PostgreSQL 스키마 설계 및 초기 마이그레이션
+- [x]  pgvector 확장 설치 및 벡터 테이블 생성
+- [x]  Python AI 서버 프로젝트 초기 세팅 (FastAPI)
+- [x]  Spring ↔ Python 간 기본 REST 통신 확인 (Health Check)
 - [x]  공공데이터포털 의약품 낱알식별 데이터 배치 적재 파이프라인 (2026-03-12 완료: drugs_master 6개 테이블)
 
-### Phase 2: 검색·낱알식별 (Case A/B 전제)
+### Phase 2: 검색·낱알식별 (Case A/B 전제) (완료)
 
-- [ ]  **QueryDSL 환경 구성**: 동적 쿼리 처리를 위한 의존성 및 설정
-- [ ]  **약 검색 API (`GET /api/drugs/search/detail`)**: 제품명, 제조사, 성분명(drug_ingredients 조인) 기반 검색 기능 구현
-- [ ]  **낱알식별 API (`GET /api/drugs/search/pillIdentifier`)**: 모양, 색상, 각인, 마크 코드 등 물리적 특성 기반 동적 쿼리 검색 구현
-- [ ]  **제형(formulation) 데이터 정규화**: `form_code_name`을 3~4개 표준 카테고리로 정리하여 DB 업데이트 및 낱알식별 필터에 반영
-- [ ]  **약품 상세 API (`GET /api/drugs/{drugId}`)**: 검색 목록에서 선택 시 상세 정보 및 `dur_rules`, `drug_contraindication` 경고 정보 표시
-- [ ]  OCR 파이프라인 (Vision + GPT-4o 정형화, **성분명 영문 출력**)
-- [ ]  영양성분 등록/조회 API
+- [x]  **QueryDSL 환경 구성**: 동적 쿼리 처리를 위한 의존성 및 설정
+- [x]  **약 검색 API (`GET /api/drugs/search/detail`)**: 제품명, 제조사, 성분명(drug_ingredients 조인) 기반 검색 기능 구현
+- [x]  **낱알 식별 API (`GET /api/drugs/search/pillIdentifier`)**: 모양, 색상, 각인, 마크 코드 등 물리적 특성 기반 동적 쿼리 검색 구현
+- [x]  **제형(formulation) 데이터 정규화**: `form_code_name`을 4개 표준 카테고리로 정리하여 DB 업데이트 및 낱알식별 필터에 반영
+- [x]  **약품 상세 API (`GET /api/drugs/{drugId}`)**: 검색 목록에서 선택 시 상세 정보 통합 제공 (DB 상호작용 의존성 완전 제거)
+- [x]  OCR 파이프라인 (PaddleOCR-VL-1.5 + Qwen 7B 텍스트 정제 + 정규식 JSON 변환)
 
-### Phase 3: Case A 구현 (충돌 검사)
+### Phase 3: Case A 구현 (충돌 검사) (완료)
 
-- [ ]  drugId → drugs_master → drug_ingredients 조회 로직
-- [ ]  상세정보 없는 drug fallback (약품명만 LLM 전달 → 안내문)
-- [ ]  Python AI 서버 상호작용 분석 파이프라인 (LLM 전담)
-- [ ]  충돌 검사 통합 API (`POST /api/interaction/check`)
+- [x]  drugId → drugs_master → drug_ingredients 조회 로직 (`InteractionCheckService`)
+- [x]  상세정보 없는 drug fallback (AI 서버가 판단)
+- [x]  Python AI 서버 상호작용 분석 파이프라인 (`interaction.py`, Gemini 3 Flash 전담)
+- [x]  충돌 검사 통합 API (`POST /api/interaction/check`) 연동 완료
 
-### Phase 4: Case B 구현 (추천)
+### Phase 4: Case B 구현 (추천) (완료)
 
-- [ ]  복수 drugIds 처리 로직
-- [ ]  Python AI 서버 안전 영양 성분 추천 파이프라인 (LLM 전담)
-- [ ]  딥링크 URL 생성 로직
-- [ ]  추천 결과 API (`POST /api/v1/recommendations/safe-nutrients`)
+- [x]  복수 drugIds 처리 로직 (`RecommendationService`)
+- [x]  Python AI 서버 안전 영양 성분 추천 파이프라인 (`recommendation.py`, Gemini 3 Flash 전담)
+- [x]  환각(Hallucination) 방지 Post-Filter 로직 구현 (추천 목록에서 금기 성분 즉시 폐기)
+- [x]  추천 결과 API (`POST /api/v1/recommendations/safe-nutrients`) 연동 완료
+- [ ]  딥링크 URL 생성 로직 (프론트엔드 연동 시 최종 형식 확정)
 
 ### Phase 5: 사용자/프로필
 
@@ -645,6 +648,29 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 | dur_rules, drug_contraindication | **낱알식별·약 검색 결과**에서만 사용 (이 약과 병용금기인 다른 약 표시). Case A/B에서는 사용 안 함 |
 | 구현 순서 | 검색·낱알식별 → Case A → Case B (drugId 획득 경로가 선행되어야 함) |
 
+### 2026-03-14 ~ 15 확정 (상세 검색 및 데이터 모델 보강)
+
+| 항목 | 결정 |
+| --- | --- |
+| 제형(form_code_name) 정규화 | 4개 표준 카테고리(정제, 캡슐, 액상, 기타)로 분류. `drugs_master`에 `normal_form_name` 컬럼 추가. |
+| 데이터 매핑 세분화 | 상세 페이지 구현을 위해 `drug-detail-page-data-mapping.md` 작성 및 `drug_price_master` 테이블 신규 구축. |
+
+### 2026-03-16 확정 (AI 스택: PaddleOCR + Gemini 3 Flash)
+
+| 항목 | 결정 |
+| --- | --- |
+| OCR | 로컬 무료 모델 `PaddleOCR-VL-1.5` 사용. Google Vision API 대체. |
+| Case A/B LLM | `Gemini 3 Flash` (gemini-3-flash-preview) 사용. Google AI Studio API 키 및 300달러 크레딧 활용. |
+| Python SDK | `google-genai` 패키지. Ollama 기반 기존 로직 제거. |
+
+### 2026-03-17 확정 (OCR 파이프라인 최적화 및 DB 상호작용 종속 제거)
+
+| 항목 | 결정 |
+| --- | --- |
+| OCR 파이프라인 | `PaddleOCR-VL-1.5`(텍스트 스캔) → `Qwen 7B`(텍스트 정제) → `Python 정규식(Regex)`(JSON 파싱)의 3단계로 확정. 성능과 가벼움, 모델의 한계 극복을 위한 최적안. |
+| DB 상호작용 로직 제거 | Spring Boot의 `DrugDetailService`에서 `drug_contraindication`, `dur_rules` 테이블을 직접 조회하던 레거시 로직 전면 삭제. **상호작용 검증은 100% LLM 전담**. |
+| 영양제 매칭(supplement.py) | 한국 데이터에 국한된 DB 한계로 인해 글로벌 활용성이 떨어지므로, 해당 엔드포인트는 주석 처리 후 추후 고도화 단계로 보류함. |
+
 ---
 
 ## 12. 미결정 사항 (Open Items)
@@ -685,28 +711,32 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 
 ---
 
-## 14. 2026-03-13 프로젝트 재시작 (Next Steps)
+## 14. 2026-03-17 프로젝트 진행 현황 (Next Steps: 프론트엔드 진입)
 
-**배경**: 2026-03-12 공공데이터 기반 신규 DB 구축 완료. 3월 13일 설계 정리: Case A/B LLM 전담, dur_rules/drug_contraindication은 낱알식별·검색 전용.
+**배경**: 2026-03-17에 걸쳐 백엔드(Spring Boot)와 AI 서버(FastAPI)의 핵심 분석 로직인 **Case A (상호작용 검사)** 와 **Case B (안전 영양제 추천)** 파이프라인 구축을 모두 성공적으로 완료했습니다. 더불어 과거 DB를 직접 뒤져 상호작용을 찾던 레거시 코드들도 완전히 청산하여 100% LLM 기반 시스템을 확립했습니다.
 
-**구현 순서** (2026-03-13 확정):
+**구현 순서** (2026-03-17 기준 최신화):
 
-1. **QueryDSL 환경 설정**: 동적 쿼리를 위한 기본 세팅.
+1. **QueryDSL 환경 설정**: 동적 쿼리를 위한 기본 세팅. (완료)
 2. **약 검색 및 낱알 식별 API** (Phase 2):
-   - `GET /api/drugs/search/detail` (상세 검색) 구현 (제품명, 제조사, 성분명)
-   - `GET /api/drugs/search/pillIdentifier` (낱알 식별) 구현 (각인, 모양, 색상, 마크 등)
-   - 제형(`form_code_name`) 수동 매핑 및 DB 정규화 적용
-3. **약품 상세 API**:
-   - `GET /api/drugs/{drugId}` 구현
-   - 검색 결과 선택 시 상세 정보 및 `dur_rules`, `drug_contraindication` 경고 연동
-4. **Case A** (LLM 전담): drugId + supplements → 상호작용 분석
-5. **Case B** (LLM 전담): drugIds → 안전 영양제 추천
+   - `GET /api/drugs/search/detail` (상세 검색) 구현 (완료)
+   - `GET /api/drugs/search/pillIdentifier` (낱알 식별) 구현 (완료)
+   - 제형(`form_code_name`) 수동 매핑 및 DB 정규화 적용 (`normal_form_name`) (완료)
+3. **약품 상세 API** (Phase 2):
+   - `GET /api/drugs/{drugId}` 구현 (컨트롤러 분리) (완료)
+   - 검색 결과 선택 시 상세 정보 통합 조회 및 DB 상호작용 의존성 제거 (완료)
+4. **Case A (충돌 검사)** (Phase 3):
+   - PaddleOCR + Qwen 7B + Regex 기반의 가볍고 정확한 영양제 텍스트 추출 API 구축 (완료)
+   - 추출된 데이터와 처방약 데이터를 조합하여 Gemini 3 Flash가 상호작용 등급을 판별하는 파이프라인 (완료)
+5. **Case B (추천)** (Phase 4):
+   - 기복용 처방약을 분석하여 Gemini 3 Flash가 환각 없이 안전한 영양 성분만을 추천하는 파이프라인 (완료)
 
-**보류/추후**:
+**Next Steps (프론트엔드 본격 진입)**:
 
-- 성분명 슬래시 정규화: drug_permit_detail.ingr_name_eng (Case A/B는 drug_ingredients 사용)
-- PDF 파싱: drug_permit_detail efficacy, dosage, caution (낱알식별 상세 정보용)
+- 백엔드의 모든 엔진(API)이 완성되었으므로, 프론트엔드 UI 화면 개발을 시작합니다.
+- 사진 촬영 UI, 처방약 검색 화면, 분석 결과(SAFE/CAUTION 등) 표시 화면을 구축하고 생성된 API들과 통합 연동(E2E) 테스트를 진행합니다.
+- 추가 고도화(한국 영양제 데이터 기반 매칭 기능 부활, 딥링크 URL 연결 확정 등)는 연동 테스트 이후 단계에서 검토합니다.
 
 ---
 
-*마지막 수정: 2026-03-13 (Case A/B LLM 전담, 데이터 용도 구분, 구현 순서 확정)*
+*마지막 수정: 2026-03-17 (백엔드/AI 핵심 엔진인 Case A, Case B 파이프라인 개발 완료 및 프론트 진입 선언)*

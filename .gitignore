@@ -54,6 +54,9 @@ backend/*.war
 # ──────────────────────────────────────────
 # [ai-server] Python / FastAPI (향후)
 # ──────────────────────────────────────────
+# AI 모델 파일 (PaddleOCR, llama 등 GGUF, exe, dll) — 용량 과다
+ai-server/app/models/
+
 ai-server/__pycache__/
 ai-server/**/__pycache__/
 ai-server/*.py[cod]

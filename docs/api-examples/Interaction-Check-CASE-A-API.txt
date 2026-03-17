@@ -1,0 +1,177 @@
+
+=========================================================================================================================================================================
+=========================================================================================================================================================================
+
+함께 먹었을때 부작용 반응이 나는 약과 영양제 테스트 데이터
+
+=========================================================================================================================================================================
+=========================================================================================================================================================================
+{ 
+  "drugId": 10633,
+  "supplements": [
+    {
+      "name": "비타민K2 보충제",
+      "nutrients": [
+        {
+          "name": "Vitamin K",
+          "amount": 100,
+          "unit": "mcg"
+        }
+      ]
+    }
+  ]
+}
+
+
+{
+  "drugId": 3276,
+  "supplements": [
+    {
+      "name": "종합비타민+미네랄",
+      "nutrients": [
+        {
+          "name": "Calcium",
+          "amount": 500,
+          "unit": "mg"
+        },
+        {
+          "name": "Magnesium",
+          "amount": 250,
+          "unit": "mg"
+        },
+        {
+          "name": "Iron",
+          "amount": 15,
+          "unit": "mg"
+        }
+      ]
+    }
+  ]
+}
+
+
+
+{
+  "drugId": 16289,
+  "supplements": [
+    {
+      "name": "비타민E 캡슐",
+      "nutrients": [
+        {
+          "name": "Vitamin E",
+          "amount": 400,
+          "unit": "IU"
+        }
+      ]
+    }
+  ]
+}
+
+=========================================================================================================================================================================
+=========================================================================================================================================================================
+
+함께 먹었을때 시너지 반응이 나는 약과 영양제 테스트 데이터
+
+=========================================================================================================================================================================
+=========================================================================================================================================================================
+{
+  "drugId": 4158,
+  "supplements": [
+    {
+      "name": "엽산 보충제",
+      "nutrients": [
+        {
+          "name": "Folic Acid",
+          "amount": 1,
+          "unit": "mg"
+        }
+      ]
+    }
+  ]
+}
+
+{
+  "drugId": 6289,
+  "supplements": [
+    {
+      "name": "칼슘+비타민D",
+      "nutrients": [
+        {
+          "name": "Calcium",
+          "amount": 600,
+          "unit": "mg"
+        },
+        {
+          "name": "Vitamin D",
+          "amount": 400,
+          "unit": "IU"
+        }
+      ]
+    }
+  ]
+}
+
+{
+  "drugId": 12739,
+  "supplements": [
+    {
+      "name": "코엔자임Q10",
+      "nutrients": [
+        {
+          "name": "Coenzyme Q10",
+          "amount": 100,
+          "unit": "mg"
+        }
+      ]
+    }
+  ]
+}
+
+
+
+
+{
+  "drugId": 2672,
+  "supplements": [
+    {
+      "name": "고함량 종합비타민미네랄",
+      "nutrients": [
+        {"name": "Vitamin A", "amount": 5000, "unit": "IU"},
+        {"name": "Vitamin C", "amount": 1000, "unit": "mg"},
+        {"name": "Vitamin D3", "amount": 2000, "unit": "IU"},
+        {"name": "Vitamin E", "amount": 400, "unit": "IU"},
+        {"name": "Vitamin K2", "amount": 100, "unit": "mcg"},
+        {"name": "Thiamine", "amount": 50, "unit": "mg"},
+        {"name": "Riboflavin", "amount": 50, "unit": "mg"},
+        {"name": "Niacin", "amount": 50, "unit": "mg"},
+        {"name": "Vitamin B6", "amount": 50, "unit": "mg"},
+        {"name": "Folic Acid", "amount": 800, "unit": "mcg"},
+        {"name": "Vitamin B12", "amount": 500, "unit": "mcg"},
+        {"name": "Biotin", "amount": 300, "unit": "mcg"},
+        {"name": "Pantothenic Acid", "amount": 50, "unit": "mg"},
+        {"name": "Calcium", "amount": 500, "unit": "mg"},
+        {"name": "Iron", "amount": 18, "unit": "mg"},
+        {"name": "Magnesium", "amount": 400, "unit": "mg"},
+        {"name": "Zinc", "amount": 30, "unit": "mg"},
+        {"name": "Selenium", "amount": 200, "unit": "mcg"},
+        {"name": "Copper", "amount": 2, "unit": "mg"},
+        {"name": "Manganese", "amount": 5, "unit": "mg"}
+      ]
+    },
+    {
+      "name": "오메가3+코엔자임Q10+허브 복합제",
+      "nutrients": [
+        {"name": "EPA", "amount": 600, "unit": "mg"},
+        {"name": "DHA", "amount": 400, "unit": "mg"},
+        {"name": "Coenzyme Q10", "amount": 100, "unit": "mg"},
+        {"name": "Alpha-Lipoic Acid", "amount": 300, "unit": "mg"},
+        {"name": "L-Carnitine", "amount": 500, "unit": "mg"},
+        {"name": "Resveratrol", "amount": 100, "unit": "mg"},
+        {"name": "Curcumin", "amount": 500, "unit": "mg"},
+        {"name": "Quercetin", "amount": 500, "unit": "mg"},
+        {"name": "Ginkgo Biloba Extract", "amount": 120, "unit": "mg"},
+        {"name": "Potassium", "amount": 99, "unit": "mg"}
+      ]
+    }
+  ]
+}
