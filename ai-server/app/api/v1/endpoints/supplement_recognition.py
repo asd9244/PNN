@@ -16,7 +16,7 @@ MODELS_DIR = r"C:\Users\jjong\Project_\PnN\pnn-project\ai-server\app\models"
 def encode_image(image_bytes: bytes):
     return base64.b64encode(image_bytes).decode('utf-8')
 
-def is_server_running(url="http://127.0.0.1:8081/health"):
+def is_server_running(url="http://127.0.0.1:8090/health"):
     try:
         urllib.request.urlopen(url, timeout=1)
         return True
@@ -34,7 +34,7 @@ def start_paddleocr_server():
         "-m", "PaddleOCR-VL-1.5.gguf",
         "--mmproj", "PaddleOCR-VL-1.5-mmproj.gguf",
         "-ngl", "99",
-        "--port", "8081"
+        "--port", "8090"
     ]
     process = subprocess.Popen(
         server_command,
@@ -67,7 +67,7 @@ async def extract_nutrients(image: UploadFile = File(...)):
         base64_image = encode_image(image_bytes)
 
         # 3. [STEP 1] PaddleOCR 텍스트 스캔
-        ocr_client = OpenAI(base_url="http://127.0.0.1:8081/v1", api_key="sk-no-key-required")
+        ocr_client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="sk-no-key-required")
         try:
             ocr_response = ocr_client.chat.completions.create(
                 model="paddleocr-vl",

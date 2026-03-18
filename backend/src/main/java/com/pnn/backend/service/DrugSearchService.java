@@ -51,8 +51,8 @@ public class DrugSearchService {
             throw new IllegalArgumentException("최소 한 가지 이상의 식별 조건(각인, 모양, 색상 등)을 입력해주세요.");
         }
 
-        log.info("낱알 식별 검색 요청 - printFront: {}, printBack: {}, markCode: {}, shape: {}, color: {}, line: {}, formulation: {}",
-                request.getPrintFront(), request.getPrintBack(), request.getMarkCode(),
+        log.info("낱알 식별 검색 요청 - printFront: {}, printBack: {}, shape: {}, color: {}, line: {}, formulation: {}",
+                request.getPrintFront(), request.getPrintBack(),
                 request.getDrugShape(), request.getColor(), request.getLine(), request.getFormulation());
 
         // Repository의 QueryDSL 동적 쿼리 호출

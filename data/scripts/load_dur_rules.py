@@ -1,8 +1,10 @@
 """
-DUR유형별 성분 현황_*.csv 8종 → dur_rules 테이블 적재
-병용금기, 투여기간주의, 용량주의, 임산부금기, 첨가제주의, 효능군중복주의, 노인주의, 특정연령대금기
+DUR유형별 성분 현황_*.csv 6종 → dur_rules 통합 테이블 적재
+노인주의, 용량주의, 임산부금기, 투여기간주의, 특정연령대금기, 효능군중복주의
+(병용금기: drug_contraindication 사용, 첨가제주의: 제외)
 """
 import csv
+import json
 import os
 import glob
 import psycopg
@@ -19,17 +21,12 @@ DB_PASS = os.getenv("DB_PASS", "1234")
 CSV_DIR = os.path.join(os.path.dirname(__file__), "../csv_data")
 DUR_PATTERN = os.path.join(CSV_DIR, "DUR유형별 성분 현황_*.csv")
 
-DB_COLUMNS = [
-    "dur_seq", "dur_type", "single_complex_code", "dur_ingr_code", "dur_ingr_name_eng", "dur_ingr_name",
-    "complex_drug", "related_ingr", "efficacy_class_code", "efficacy_group", "notice_date", "contraind_content",
-    "dosage_form", "age_criteria", "max_duration", "max_daily_dose", "grade", "note", "status", "series_name",
-    "contraind_single_complex_code", "contraind_dur_ingr_code", "contraind_dur_ingr_name_eng", "contraind_dur_ingr_name",
-    "contraind_complex_drug", "contraind_related_ingr", "contraind_efficacy_class",
-]
-PLACEHOLDERS = ", ".join(["%s"] * len(DB_COLUMNS))
-INSERT_SQL = f"""
-    INSERT INTO dur_rules ({", ".join(DB_COLUMNS)})
-    VALUES ({PLACEHOLDERS})
+# 적재 대상 6개 유형 (병용금기, 첨가제주의 제외)
+ALLOWED_TYPES = {"노인주의", "용량주의", "임산부금기", "투여기간주의", "특정연령대금기", "효능군중복주의"}
+
+INSERT_SQL = """
+    INSERT INTO dur_rules (dur_type, product_code, ingr_code, ingr_name, warning_text, raw_data)
+    VALUES (%s, %s, %s, %s, %s, %s::jsonb)
 """
 
 
@@ -40,38 +37,68 @@ def _clean(val):
     return s.replace("\x00", "") if s else None
 
 
-def _row_to_values(row, dur_type):
-    def v(i):
-        return _clean(row[i]) if i < len(row) else None
-    return [
-        v(0),   # dur_seq
-        dur_type,  # dur_type (파일명에서 추출)
-        v(2),   # single_complex_code
-        v(3),   # dur_ingr_code
-        v(4),   # dur_ingr_name_eng
-        v(5),   # dur_ingr_name
-        v(6),   # complex_drug
-        v(7),   # related_ingr
-        v(8),   # efficacy_class_code
-        v(9),   # efficacy_group
-        v(10),  # notice_date
-        v(11),  # contraind_content
-        v(12),  # dosage_form
-        v(13),  # age_criteria
-        v(14),  # max_duration
-        v(15),  # max_daily_dose
-        v(16),  # grade
-        v(24),  # note
-        v(25),  # status
-        v(26),  # series_name
-        v(17),  # contraind_single_complex_code
-        v(18),  # contraind_dur_ingr_code
-        v(19),  # contraind_dur_ingr_name_eng
-        v(20),  # contraind_dur_ingr_name
-        v(21),  # contraind_complex_drug
-        v(22),  # contraind_related_ingr
-        v(23),  # contraind_efficacy_class
-    ]
+def _get_product_code(row, headers):
+    """제품코드 컬럼명 변형 대응"""
+    for key in ("제품코드", "product_code"):
+        if key in row:
+            return _clean(row[key])
+    return None
+
+
+def _get_ingr_name(row):
+    for key in ("성분명", "ingr_name"):
+        if key in row:
+            return _clean(row[key])
+    return None
+
+
+def _get_ingr_code(row):
+    for key in ("성분코드", "ingr_code"):
+        if key in row:
+            return _clean(row[key])
+    return None
+
+
+def _build_warning_text(dur_type, row):
+    """파일 유형별 warning_text 생성"""
+    if dur_type == "노인주의":
+        return _clean(row.get("약품상세정보"))
+    if dur_type == "용량주의":
+        max_dose = _clean(row.get("1일최대투여량"))
+        std = _clean(row.get("1일최대 투여기준량"))
+        if max_dose and std:
+            return f"1일 최대 {max_dose} (기준량 {std}) 초과 주의"
+        return max_dose or std
+    if dur_type == "임산부금기":
+        return _clean(row.get("상세정보"))
+    if dur_type == "투여기간주의":
+        days = _clean(row.get("최대투여기간일수"))
+        if days:
+            return f"{days}일 초과 투여 주의"
+        return days
+    if dur_type == "특정연령대금기":
+        return _clean(row.get("상세정보"))
+    if dur_type == "효능군중복주의":
+        return _clean(row.get("효능군"))
+    return None
+
+
+def _process_file(path, dur_type):
+    """단일 CSV 파일 처리 → (dur_type, product_code, ingr_code, ingr_name, warning_text, raw_data) 리스트"""
+    rows = []
+    with open(path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames or []
+        for row in reader:
+            product_code = _get_product_code(row, headers)
+            if not product_code:
+                continue
+            warning_text = _build_warning_text(dur_type, row)
+            ingr_name = _get_ingr_name(row)
+            ingr_code = _get_ingr_code(row)
+            raw_data = json.dumps(row, ensure_ascii=False)
+            rows.append((dur_type, product_code, ingr_code, ingr_name, warning_text, raw_data))
+    return rows
 
 
 def main():
@@ -80,29 +107,22 @@ def main():
         print(f"파일을 찾을 수 없습니다: {DUR_PATTERN}")
         return
 
-    # 파일명에서 DUR유형 추출: "DUR유형별 성분 현황_병용금기.csv" -> "병용금기"
     def get_dur_type(path):
         base = os.path.basename(path)
         return base.replace("DUR유형별 성분 현황_", "").replace(".csv", "")
 
-    rows = []
+    all_rows = []
     for path in files:
         dur_type = get_dur_type(path)
+        if dur_type not in ALLOWED_TYPES:
+            print(f"  건너뜀: {os.path.basename(path)} ({dur_type} - 적재 대상 아님)")
+            continue
         print(f"  읽는 중: {os.path.basename(path)} ({dur_type})")
-        with open(path, "r", encoding="utf-8-sig") as f:
-            reader = csv.reader(f)
-            header = next(reader)
-            for row in reader:
-                if len(row) < 20:
-                    continue
-                dur_seq = _clean(row[0])
-                dur_type_row = _clean(row[1])
-                if not dur_seq:
-                    continue
-                # 파일명 기준 dur_type 사용 (row[1]과 동일해야 함)
-                rows.append(_row_to_values(row, dur_type_row or dur_type))
+        rows = _process_file(path, dur_type)
+        all_rows.extend(rows)
+        print(f"    → {len(rows)}건")
 
-    total = len(rows)
+    total = len(all_rows)
     print(f"\n적재 대상: {total}건")
 
     if total == 0:
@@ -113,7 +133,7 @@ def main():
     conn_str = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASS}"
     with psycopg.connect(conn_str) as conn:
         with conn.cursor() as cur:
-            cur.executemany(INSERT_SQL, rows)
+            cur.executemany(INSERT_SQL, all_rows)
         conn.commit()
     print(f"적재 완료: {total}건")
 

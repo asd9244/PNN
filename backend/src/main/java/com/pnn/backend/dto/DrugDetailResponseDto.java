@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 약품 상세 페이지 응답용 DTO
@@ -55,9 +56,10 @@ public class DrugDetailResponseDto {
         private String etcOtcCode;     // 구분 - 전문/일반 (drug_permit_detail)
         private String entpName;       // 판매사 (drug_permit_detail)
         private String consignEntp;    // 제조사 - 위탁제조업체 등 (drug_permit_detail)
-        private String insurCode;      // 보험코드 (drug_price_master)
-        private String rawIngredients; // 영문전체 성분 및 함량 (drug_permit_detail)
-        private String mainIngrCode;   // 주성분 코드 (drug_price_master)
+        private String insurCode;       // 보험코드 (drug_price_master)
+        private List<Map<String, Object>> parsedIngredients; // 정제된 성분 목록 (drug_permit_detail.parsed_ingredients)
+        private String rawIngredients;  // 원문 성분 (parsedIngredients 없을 때 fallback)
+        private String mainIngrCode;    // 주성분 코드 (drug_price_master)
         private String className;      // 분류명 (drugs_master)
         private String atcCode;        // ATC코드 (drug_price_master)
     }
@@ -102,10 +104,32 @@ public class DrugDetailResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class DurInfo {
-        // 해당 약과 같이 먹으면 안 되는 병용금기 다른 성분들 (drug_contraindication)
-        private List<String> contraindications; 
-        
-        // 해당 약이 가지고 있는 임부금기 등 DUR 성분 경고 (dur_rules)
-        private List<String> durWarnings;       
+        // 병용금기 목록 (drug_contraindication): ingr_name_1, ingr_name_2, contraind_reason
+        private List<ContraindicationItem> contraindications;
+
+        // DUR 경고 목록 (dur_rules): 해당되는 유형만 표시, dur_type, ingr_name, warning_text
+        private List<DurWarningItem> durWarnings;
+    }
+
+    /** 병용금기 1건 */
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ContraindicationItem {
+        private String ingrName1;
+        private String ingrName2;
+        private String contraindReason;
+    }
+
+    /** DUR 경고 1건 (노인주의, 용량주의, 임산부금기 등) */
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DurWarningItem {
+        private String durType;
+        private String ingrName;
+        private String warningText;
     }
 }

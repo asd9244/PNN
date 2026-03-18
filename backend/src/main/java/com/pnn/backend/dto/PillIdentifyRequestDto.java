@@ -16,7 +16,6 @@ public class PillIdentifyRequestDto {
 
     private String printFront; // 앞면 식별 문자 (실제 쿼리시엔 앞/뒤 OR 검색)
     private String printBack; // 뒷면 식별 문자 (실제 쿼리시엔 앞/뒤 OR 검색)
-    private String markCode; // 식별 마크 코드 (이미지가 아닌 고유 코드)
     private String drugShape; // 알약 모양 (예: 원형, 장방형)
     private String color; // 색상 (예: 하양, 노랑) - 앞/뒤 OR 검색
     private String line; // 분할선 (예: +, -) - 앞/뒤 OR 검색
@@ -26,7 +25,6 @@ public class PillIdentifyRequestDto {
     public boolean isEmpty() {
         return (printFront == null || printFront.trim().isEmpty()) &&
                 (printBack == null || printBack.trim().isEmpty()) &&
-                (markCode == null || markCode.trim().isEmpty()) &&
                 (drugShape == null || drugShape.trim().isEmpty()) &&
                 (color == null || color.trim().isEmpty()) &&
                 (line == null || line.trim().isEmpty()) &&

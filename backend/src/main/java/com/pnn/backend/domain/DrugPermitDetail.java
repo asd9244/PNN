@@ -3,6 +3,11 @@ package com.pnn.backend.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 의약품 제품허가 상세정보 (drug_permit_detail)
@@ -78,6 +83,10 @@ public class DrugPermitDetail {
 
     @Column(name = "raw_ingredients", columnDefinition = "TEXT")
     private String rawIngredients;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "parsed_ingredients", columnDefinition = "jsonb")
+    private List<Map<String, Object>> parsedIngredients;
 
     @Column(name = "ingr_name_eng", columnDefinition = "TEXT")
     private String ingrNameEng;

@@ -131,12 +131,6 @@ public class DrugsMasterRepositoryImpl implements DrugsMasterRepositoryCustom {
                     .or(drugsMaster.printBack.containsIgnoreCase(request.getPrintBack())));
         }
 
-        // 마크 코드 (이미지가 아닌 코드값으로 정확히 비교)
-        if (StringUtils.hasText(request.getMarkCode())) {
-            builder.and(drugsMaster.markCodeFront.eq(request.getMarkCode())
-                    .or(drugsMaster.markCodeBack.eq(request.getMarkCode())));
-        }
-
         // 색상 (앞면 또는 뒷면에 포함)
         if (StringUtils.hasText(request.getColor())) {
             builder.and(drugsMaster.colorFront.containsIgnoreCase(request.getColor())
