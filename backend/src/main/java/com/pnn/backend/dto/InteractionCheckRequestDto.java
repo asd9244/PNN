@@ -1,6 +1,6 @@
 package com.pnn.backend.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 import java.util.List;
@@ -12,9 +12,9 @@ import java.util.List;
 @Data
 public class InteractionCheckRequestDto {
 
-    /** 검사 대상 처방약 ID (drugs_master.id). DB에서 약품 정보 조회에 사용 */
-    @NotNull(message = "drugId는 필수입니다.")
-    private Long drugId;
+    /** 검사 대상 처방약 ID 목록 (drugs_master.id). DB에서 약품 정보 조회에 사용 */
+    @NotEmpty(message = "drugIds 배열은 비어있을 수 없습니다.")
+    private List<Long> drugIds;
 
     /** 기복용 영양제 목록. 각 제품별 제품명(name)과 포함 영양 성분(nutrients) 포함 */
     private List<SupplementInput> supplements;

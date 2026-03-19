@@ -14,6 +14,8 @@ interface ActionCardProps {
   /** 아이콘 배경색 */
   iconBgColor?: string;
   style?: StyleProp<ViewStyle>;
+  /** 버튼 비활성화 여부 */
+  disabled?: boolean;
 }
 
 export default function ActionCard({
@@ -25,12 +27,20 @@ export default function ActionCard({
   iconColor = '#8A2BE2',
   iconBgColor = '#F3E8FF',
   style,
+  disabled = false,
 }: ActionCardProps) {
   return (
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={onPress}
-      style={[styles.container, compact && styles.containerCompact, { backgroundColor: compact ? iconBgColor : '#FFFFFF' }, style]}
+      disabled={disabled}
+      style={[
+        styles.container, 
+        compact && styles.containerCompact, 
+        { backgroundColor: compact ? iconBgColor : '#FFFFFF' }, 
+        style,
+        disabled && styles.containerDisabled
+      ]}
     >
       <View style={[styles.iconContainer, compact && styles.iconContainerCompact, { backgroundColor: compact ? 'transparent' : iconBgColor }]}>
         <Ionicons name={iconName} size={compact ? 28 : 32} color={iconColor} />
@@ -102,5 +112,8 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 20,
     paddingRight: 8,
+  },
+  containerDisabled: {
+    opacity: 0.5,
   },
 });

@@ -4,11 +4,12 @@ import { View, Text, StyleSheet } from 'react-native';
 interface InfoRowProps {
   label?: string;
   value: string | undefined;
+  noBorder?: boolean;
 }
 
-export default function InfoRow({ label, value }: InfoRowProps) {
+export default function InfoRow({ label, value, noBorder }: InfoRowProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, noBorder && styles.noBorderContainer]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <Text style={styles.value}>{value || '-'}</Text>
     </View>
@@ -20,6 +21,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+  },
+  noBorderContainer: {
+    paddingVertical: 8,
+    borderBottomWidth: 0,
   },
   label: {
     fontSize: 12,

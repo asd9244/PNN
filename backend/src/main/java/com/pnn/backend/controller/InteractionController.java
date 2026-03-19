@@ -28,11 +28,11 @@ public class InteractionController {
 
     private final InteractionCheckService interactionCheckService;
 
-    @Operation(summary = "상호작용 검사", description = "신규 처방약과 기복용 영양제 간의 상호작용을 AI로 분석합니다.")
+    @Operation(summary = "상호작용 검사", description = "여러 신규 처방약과 기복용 영양제 간의 상호작용을 AI로 분석합니다.")
     @PostMapping("/check")
     public ResponseEntity<InteractionCheckResponseDto> checkInteraction(
             @Valid @RequestBody InteractionCheckRequestDto request) {
-        log.info("상호작용 검사 API 호출 - drugId: {}", request.getDrugId());
+        log.info("상호작용 검사 API 호출 - drugIds: {}", request.getDrugIds());
         InteractionCheckResponseDto response = interactionCheckService.checkInteraction(request);
         return ResponseEntity.ok(response);
     }

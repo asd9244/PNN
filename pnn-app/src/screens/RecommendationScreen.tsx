@@ -1,13 +1,151 @@
-import React from 'react';
-import { Text, View, Button } from 'react-native';
-import { recommendationScreenStyles as styles } from '../styles';
+import React from "react";
+import {
+  View,
+  Text,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import {NativeStackNavigationProp} from "@react-navigation/native-stack";
+import {RootStackParamList} from "../navigation/AppNavigator";
+import {useDrugStore} from "../store/useDrugStore";
+import {Ionicons} from "@expo/vector-icons";
 
-export default function RecommendationScreen({ navigation }: any) {
+import Header from "../components/Header";
+import ActionCard from "../components/ActionCard";
+import {inputScreenStyles as styles} from "../styles";
+
+type NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "Recommendation"
+>;
+
+interface Props {
+  navigation: NavigationProp;
+}
+
+export default function RecommendationScreen({navigation}: Props) {
+  const recommendationDrugs = useDrugStore(
+    (state) => state.recommendationDrugs,
+  );
+  const removeRecommendationDrug = useDrugStore(
+    (state) => state.removeRecommendationDrug,
+  );
+  const drugCount = recommendationDrugs.length;
+
+  const canRecommend = drugCount > 0;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>안전 영양제 추천 (Recommendation-page)</Text>
-      <Text>현재 복용 중인 처방약 기반으로 안전 성분 추천</Text>
-      <Button title="추천 받기" onPress={() => navigation.navigate('RecommendationResult')} />
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <Header title="영양제 추천" />
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* 헤더 설명 */}
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>
+            복용중인 약과 시너지 효과가 있는 영양제를 추천받아보세요.
+          </Text>
+        </View>
+
+        {/* 처방약 정보 입력 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>처방약 정보 입력</Text>
+          <Text style={styles.sectionSubtitle}>
+            현재 복용 중인 약을 모두 추가해주세요.
+          </Text>
+          <View style={styles.buttonRow}>
+            <ActionCard
+              title="상세검색"
+              iconName="search-outline"
+              onPress={() =>
+                navigation.navigate("DrugSearch", {
+                  sourceScreen: "Recommendation",
+                })
+              }
+              compact
+              iconColor="#2563EB"
+              iconBgColor="#DBEAFE"
+              style={{flex: 1}}
+            />
+            <ActionCard
+              title="식별검색"
+              iconName="scan-outline"
+              onPress={() =>
+                navigation.navigate("PillIdentify", {
+                  sourceScreen: "Recommendation",
+                })
+              }
+              compact
+              iconColor="#7C3AED"
+              iconBgColor="#EDE9FE"
+              style={{flex: 1}}
+            />
+          </View>
+        </View>
+
+        {/* 처방약 요약 */}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryCardHeader}>
+            <View style={styles.summaryCardBarGreen} />
+            <Text style={styles.summaryCardTitle}>
+              처방약 요약 ({drugCount})
+            </Text>
+          </View>
+
+          {drugCount === 0 ? (
+            <Text style={styles.summaryCardPlaceholder}>
+              처방약을 추가해주세요.
+            </Text>
+          ) : (
+            <View style={styles.drugListContainer}>
+              {recommendationDrugs.map((drug) => (
+                <View key={drug.drugId} style={styles.drugListItem}>
+                  <View style={styles.drugListItemText}>
+                    <Text style={styles.drugItemName} numberOfLines={1}>
+                      {drug.itemName}
+                    </Text>
+                    <Text style={styles.drugEntpName} numberOfLines={1}>
+                      {drug.entpName}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.removeDrugButton}
+                    onPress={() => removeRecommendationDrug(drug.drugId)}
+                    hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  >
+                    <Ionicons name="close" size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* 맞춤 영양제 추천받기 버튼 */}
+        <TouchableOpacity
+          style={[
+            styles.bottomButton,
+            canRecommend && {backgroundColor: "#059669"},
+          ]}
+          onPress={() =>
+            canRecommend && navigation.navigate("RecommendationResult")
+          }
+          disabled={!canRecommend}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.bottomButtonText,
+              canRecommend && {color: "#FFFFFF"},
+            ]}
+          >
+            맞춤 영양제 추천받기
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

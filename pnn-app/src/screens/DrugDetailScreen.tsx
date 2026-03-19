@@ -11,6 +11,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useDrugStore, SelectedDrug } from '../store/useDrugStore';
 
 import Header from '../components/Header';
 import InfoRow from '../components/InfoRow';
@@ -48,11 +49,33 @@ const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/300x200?text=No+Image';
 export default function DrugDetailScreen({ navigation }: Props) {
   const route = useRoute<RoutePropType>();
   const drugId = route.params?.drugId;
+  const sourceScreen = route.params?.sourceScreen;
+
+  const addInteractionDrug = useDrugStore((state) => state.addInteractionDrug);
+  const addRecommendationDrug = useDrugStore((state) => state.addRecommendationDrug);
 
   const [data, setData] = useState<DrugDetailResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('약품정보');
+
+  const handleAddDrug = () => {
+    if (!data || !sourceScreen) return;
+
+    const selectedDrug: SelectedDrug = {
+      drugId,
+      itemName: data.header?.itemName ?? '이름 없음',
+      entpName: data.drugInfo?.entpName ?? '제조사 없음',
+    };
+
+    if (sourceScreen === 'InteractionCheck') {
+      addInteractionDrug(selectedDrug);
+      navigation.navigate('InteractionCheck');
+    } else if (sourceScreen === 'Recommendation') {
+      addRecommendationDrug(selectedDrug);
+      navigation.navigate('Recommendation');
+    }
+  };
 
   const fetchDetail = useCallback(async () => {
     if (drugId == null) {
@@ -195,66 +218,73 @@ export default function DrugDetailScreen({ navigation }: Props) {
           </View>
         );
 
-      case 'DUR':
+      case 'DUR': {
+        const contraindications = data.durInfo?.contraindications ?? [];
+        const durWarnings = data.durInfo?.durWarnings ?? [];
+        const hasDUR = contraindications.length > 0 || durWarnings.length > 0;
+
         return (
           <View style={styles.tabContentContainer}>
             <View style={styles.permitSectionHeader}>
               <View
                 style={[styles.verticalBar, { backgroundColor: '#111827' }]}
               />
-              <Text style={styles.permitSectionTitle}>병용금기 성분</Text>
+              <Text style={styles.permitSectionTitle}>DUR(의약품 안심 서비스)</Text>
             </View>
-            {(data.durInfo?.contraindications ?? []).length > 0 ? (
-              (data.durInfo?.contraindications ?? []).map((item, index) => (
-                <View key={index}>
-                  <InfoRow label="원료명1" value={item.ingrName1} />
-                  <InfoRow label="원료명2" value={item.ingrName2} />
-                  <InfoRow label="금기내용" value={item.contraindReason} />
-                </View>
-              ))
-            ) : (
-              <InfoRow value="해당사항 없음" />
-            )}
 
-            {(data.durInfo?.durWarnings ?? []).length > 0 ? (
-              (() => {
-                const warnings = data.durInfo!.durWarnings;
-                const byType = warnings.reduce<Record<string, typeof warnings>>(
-                  (acc, w) => {
-                    const key = w.durType || '기타';
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(w);
-                    return acc;
-                  },
-                  {}
-                );
-                return Object.entries(byType).map(([durType, items]) => (
-                  <View key={durType} style={styles.durSection}>
-                    <View style={styles.permitSectionHeader}>
-                      <View
-                        style={[
-                          styles.verticalBar,
-                          { backgroundColor: '#111827' },
-                        ]}
-                      />
-                      <Text style={styles.permitSectionTitle}>{durType}</Text>
-                    </View>
-                    {items.map((item, idx) => (
-                      <View key={idx}>
-                        <InfoRow label="원료명" value={item.ingrName} />
-                        <InfoRow label="경고문구" value={item.warningText} />
+            {!hasDUR ? (
+              <Text style={styles.emptyDurText}>
+                제품에 대한 DUR 지침이 존재하지 않습니다.
+              </Text>
+            ) : (
+              <>
+                {contraindications.length > 0 && (
+                  <View style={styles.durSection}>
+                    <Text style={styles.durSubTitle}>병용금기 성분</Text>
+                    {contraindications.map((item, index) => (
+                      <View key={index} style={styles.durItemContainer}>
+                        <InfoRow label="원료명1" value={item.ingrName1} noBorder />
+                        <InfoRow label="원료명2" value={item.ingrName2} noBorder />
+                        <InfoRow label="금기내용" value={item.contraindReason} noBorder />
                       </View>
                     ))}
                   </View>
-                ));
-              })()
-            ) : null}
+                )}
+
+                {durWarnings.length > 0 && (() => {
+                  const warnings = durWarnings;
+                  const byType = warnings.reduce<Record<string, typeof warnings>>(
+                    (acc, w) => {
+                      const key = w.durType || '기타';
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(w);
+                      return acc;
+                    },
+                    {}
+                  );
+
+                  return Object.entries(byType).map(([durType, items]) => (
+                    <View key={durType} style={styles.durSection}>
+                      <Text style={styles.durSubTitle}>{durType}</Text>
+                      {items.map((item, idx) => (
+                        <View key={idx} style={styles.durItemContainer}>
+                          <InfoRow label="원료명" value={item.ingrName} noBorder />
+                          <InfoRow label="경고문구" value={item.warningText} noBorder />
+                        </View>
+                      ))}
+                    </View>
+                  ));
+                })()}
+              </>
+            )}
+
             <Text style={styles.footerNote}>
               * 본 정보는 건강보험심사평가원(HIRA) DUR 공공데이터를 기반으로
               제공됩니다.
             </Text>
           </View>
         );
+      }
 
       default:
         return null;
@@ -273,6 +303,13 @@ export default function DrugDetailScreen({ navigation }: Props) {
       <SafeAreaView style={styles.safeArea}>
       <Header
         title={data?.header?.itemName ?? '약품정보'}
+        rightComponent={
+          sourceScreen ? (
+            <TouchableOpacity onPress={handleAddDrug} style={styles.addDrugButton}>
+              <Text style={styles.addDrugButtonText}>약 추가</Text>
+            </TouchableOpacity>
+          ) : undefined
+        }
       />
 
       <View style={styles.tabBar}>

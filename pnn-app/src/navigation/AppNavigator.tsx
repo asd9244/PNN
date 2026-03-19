@@ -14,10 +14,12 @@ import RecommendationScreen from '../screens/RecommendationScreen';
 import RecommendationResultScreen from '../screens/RecommendationResultScreen';
 import PillIdentifyScreen from '../screens/PillIdentifyScreen';
 
+export type SourceScreenType = 'InteractionCheck' | 'Recommendation';
+
 export type RootStackParamList = {
   Home: undefined;
-  DrugSearch: undefined;
-  PillIdentify: undefined;
+  DrugSearch: { sourceScreen?: SourceScreenType } | undefined;
+  PillIdentify: { sourceScreen?: SourceScreenType } | undefined;
   DrugList:
     | {
         itemName?: string;
@@ -29,12 +31,13 @@ export type RootStackParamList = {
         color?: string;
         line?: string;
         formulation?: string;
+        sourceScreen?: SourceScreenType;
       }
     | undefined;
-  DrugDetail: { drugId: number };
+  DrugDetail: { drugId: number; sourceScreen?: SourceScreenType };
   InteractionCheck: undefined;
   InteractionAddDrug: undefined;
-  InteractionResult: undefined;
+  InteractionResult: { result: any } | undefined;
   Recommendation: undefined;
   RecommendationResult: undefined;
 };
@@ -59,7 +62,7 @@ export default function AppNavigator() {
         <Stack.Screen name="InteractionResult" component={InteractionResultScreen} options={{ title: '분석 결과' }} />
         
         {/* 안전 영양제 추천 (Case B) */}
-        <Stack.Screen name="Recommendation" component={RecommendationScreen} options={{ title: '영양제 추천 (Case B)' }} />
+        <Stack.Screen name="Recommendation" component={RecommendationScreen} options={{ title: '영양제 추천' }} />
         <Stack.Screen name="RecommendationResult" component={RecommendationResultScreen} options={{ title: '추천 결과' }} />
       </Stack.Navigator>
     </NavigationContainer>

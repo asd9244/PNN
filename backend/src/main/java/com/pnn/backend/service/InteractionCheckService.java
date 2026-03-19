@@ -17,11 +17,12 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
- * Case A: 신규 처방약 ↔ 기복용 영양제 충돌 검사 서비스
- * <p>흐름: drugId로 DB에서 약품·성분 조회 → Python AI 서버(Gemini) 호출 → 상호작용 등급·설명·행동 가이드 반환</p>
- * <p>AI 서버 장애 시 CAUTION 등급의 fallback 메시지 반환 (의사/약사 상담 권장)</p>
+ * Case A: 처방약 목록 ↔ 기복용 영양제 목록 충돌 검사 서비스
+ * <p>흐름: drugIds로 DB에서 약품·성분 조회 → 약품별로 Python AI 서버(Gemini) 비동기 병렬 호출 → 결과 취합 반환</p>
  */
 @Slf4j
 @Service
@@ -34,52 +35,72 @@ public class InteractionCheckService {
     private final AiServerClient aiServerClient;
 
     /**
-     * 처방약 + 영양제 상호작용 검사
-     * @param request drugId(필수), supplements(기복용 영양제 목록)
-     * @return 상호작용 목록 (등급, 설명, 행동 가이드). AI 장애 시 fallback 메시지
+     * 여러 처방약 + 영양제 상호작용 병렬 검사
+     * @param request drugIds(필수), supplements(기복용 영양제 목록)
      */
     public InteractionCheckResponseDto checkInteraction(InteractionCheckRequestDto request) {
-        // 1. DB에서 처방약 정보 조회
-        DrugsMaster drug = drugsMasterRepository.findById(request.getDrugId())
-                .orElseThrow(() -> new IllegalArgumentException("약품을 찾을 수 없습니다. drugId=" + request.getDrugId()));
+        if (request.getDrugIds() == null || request.getDrugIds().isEmpty()) {
+            throw new IllegalArgumentException("drugIds 목록이 비어있습니다.");
+        }
 
-        // 2. 처방약 영문 성분 목록 추출 (AI 분석용)
+        List<DrugsMaster> drugs = drugsMasterRepository.findAllById(request.getDrugIds());
+        if (drugs.isEmpty()) {
+            throw new IllegalArgumentException("요청한 처방약을 DB에서 찾을 수 없습니다.");
+        }
+
+        List<AiInteractionRequest.SupplementInput> mappedSupplements = mapSupplements(request.getSupplements());
+
+        // 각 약품에 대해 비동기 병렬 호출 세팅
+        List<CompletableFuture<List<InteractionCheckResponseDto.InteractionItem>>> futures = drugs.stream()
+                .map(drug -> CompletableFuture.supplyAsync(() -> processSingleDrug(drug, mappedSupplements)))
+                .toList();
+
+        // 모든 비동기 작업이 완료될 때까지 대기 후 결과 취합
+        List<InteractionCheckResponseDto.InteractionItem> allInteractions = futures.stream()
+                .map(CompletableFuture::join)
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
+
+        return InteractionCheckResponseDto.builder()
+                .interactions(allInteractions)
+                .build();
+    }
+
+    /** 단일 약품에 대한 AI 상호작용 검사 수행 */
+    private List<InteractionCheckResponseDto.InteractionItem> processSingleDrug(
+            DrugsMaster drug, List<AiInteractionRequest.SupplementInput> supplements) {
+
         List<String> ingredients = drugIngredientRepository.findByItemSeq(drug.getItemSeq()).stream()
                 .map(DrugIngredient::getIngrNameEng)
                 .filter(eng -> eng != null && !eng.isBlank())
                 .distinct()
                 .toList();
 
-        // 3. AI 서버 요청 DTO 구성 후 호출
         AiInteractionRequest aiRequest = AiInteractionRequest.builder()
                 .drug(AiInteractionRequest.DrugInput.builder()
                         .id(String.valueOf(drug.getId()))
                         .name(drug.getItemName())
                         .ingredients(ingredients)
                         .build())
-                .supplements(mapSupplements(request.getSupplements()))
+                .supplements(supplements)
                 .build();
 
         try {
             AiInteractionResponse aiResponse = aiServerClient.analyzeInteraction(aiRequest);
-            return mapToResponse(aiResponse);
+            return mapToResponseItems(aiResponse);
         } catch (RestClientException e) {
-            // AI 서버 장애 시: 의사/약사 상담 권장 메시지로 fallback
-            log.warn("AI 서버 호출 실패. fallback 메시지 반환: {}", e.getMessage());
-            return InteractionCheckResponseDto.builder()
-                    .interactions(List.of(InteractionCheckResponseDto.InteractionItem.builder()
-                            .nutrient("알 수 없음")
-                            .contraindicatedDrugIngredient("알 수 없음")
-                            .level("CAUTION")
-                            .description("AI 분석 서비스를 일시적으로 사용할 수 없습니다.")
-                            .actionGuide("영양제 복용 전 반드시 의사 또는 약사와 상담하시기 바랍니다.")
-                            .sources(Collections.emptyList())
-                            .build()))
-                    .build();
+            log.warn("AI 서버 호출 실패 (drug: {}). fallback 메시지 반환: {}", drug.getItemName(), e.getMessage());
+            return List.of(InteractionCheckResponseDto.InteractionItem.builder()
+                    .nutrient("알 수 없음")
+                    .contraindicatedDrugIngredient("알 수 없음")
+                    .level("CAUTION")
+                    .description("'" + drug.getItemName() + "'에 대한 AI 분석 서비스를 일시적으로 사용할 수 없습니다.")
+                    .actionGuide("영양제 복용 전 반드시 의사 또는 약사와 상담하시기 바랍니다.")
+                    .sources(Collections.emptyList())
+                    .build());
         }
     }
 
-    /** API 요청 DTO의 supplements를 AI 서버 요청 형식으로 변환 */
     private List<AiInteractionRequest.SupplementInput> mapSupplements(
             List<InteractionCheckRequestDto.SupplementInput> supplements) {
         if (supplements == null) return List.of();
@@ -97,12 +118,11 @@ public class InteractionCheckService {
                 .toList();
     }
 
-    /** AI 서버 응답을 API 응답 DTO로 변환 */
-    private InteractionCheckResponseDto mapToResponse(AiInteractionResponse ai) {
+    private List<InteractionCheckResponseDto.InteractionItem> mapToResponseItems(AiInteractionResponse ai) {
         if (ai == null || ai.getInteractions() == null) {
-            return InteractionCheckResponseDto.builder().interactions(List.of()).build();
+            return List.of();
         }
-        List<InteractionCheckResponseDto.InteractionItem> items = ai.getInteractions().stream()
+        return ai.getInteractions().stream()
                 .map(i -> InteractionCheckResponseDto.InteractionItem.builder()
                         .nutrient(i.getNutrient())
                         .contraindicatedDrugIngredient(i.getContraindicatedDrugIngredient())
@@ -112,6 +132,5 @@ public class InteractionCheckService {
                         .sources(i.getSources() != null ? i.getSources() : List.of())
                         .build())
                 .toList();
-        return InteractionCheckResponseDto.builder().interactions(items).build();
     }
 }

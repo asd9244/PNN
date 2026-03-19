@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 import Header from '../components/Header';
@@ -9,11 +10,15 @@ import ActionButtons from '../components/ActionButtons';
 import { drugSearchScreenStyles as styles } from '../styles';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'DrugSearch'>;
+type DrugSearchRouteProp = RouteProp<RootStackParamList, 'DrugSearch'>;
 interface Props {
   navigation: NavigationProp;
 }
 
 export default function DrugSearchScreen({ navigation }: Props) {
+  const route = useRoute<DrugSearchRouteProp>();
+  const sourceScreen = route.params?.sourceScreen;
+
   const [itemName, setItemName] = useState('');
   const [entpName, setEntpName] = useState('');
   const [ingredient, setIngredient] = useState('');
@@ -36,6 +41,7 @@ export default function DrugSearchScreen({ navigation }: Props) {
       itemName: itemName.trim() || undefined,
       entpName: entpName.trim() || undefined,
       ingredient: ingredient.trim() || undefined,
+      sourceScreen,
     });
   };
 

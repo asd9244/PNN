@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 import Header from '../components/Header';
@@ -19,6 +20,7 @@ import ActionButtons from '../components/ActionButtons';
 import { pillIdentifyScreenStyles as styles } from '../styles';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PillIdentify'>;
+type PillIdentifyRouteProp = RouteProp<RootStackParamList, 'PillIdentify'>;
 interface Props {
   navigation: NavigationProp;
 }
@@ -46,6 +48,9 @@ function getColorHex(colorName: string) {
 }
 
 export default function PillIdentifyScreen({ navigation }: Props) {
+  const route = useRoute<PillIdentifyRouteProp>();
+  const sourceScreen = route.params?.sourceScreen;
+
   const [frontText, setFrontText] = useState('');
   const [backText, setBackText] = useState('');
   const [selectedShape, setSelectedShape] = useState<string | null>(null);
@@ -82,6 +87,7 @@ export default function PillIdentifyScreen({ navigation }: Props) {
       drugShape: selectedShape || undefined,
       color: selectedColor || undefined,
       formulation: selectedForm || undefined,
+      sourceScreen,
     });
   };
 

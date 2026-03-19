@@ -82,6 +82,11 @@ async def extract_nutrients(image: UploadFile = File(...)):
                 temperature=0.0
             )
             raw_ocr_text = ocr_response.choices[0].message.content.strip()
+            print("\n" + "=" * 60)
+            print("[Paddle OCR 모델 분석 결과]")
+            print("=" * 60)
+            print(raw_ocr_text)
+            print("=" * 60 + "\n")
         except Exception as e:
             return {"error": f"PaddleOCR 호출 실패: {e}"}
 
@@ -105,6 +110,11 @@ async def extract_nutrients(image: UploadFile = File(...)):
                 max_tokens=2048
             )
             refined_text = refine_response.choices[0].message.content.strip()
+            print("\n" + "=" * 60)
+            print("[Qwen 모델 분석 결과]")
+            print("=" * 60)
+            print(refined_text)
+            print("=" * 60 + "\n")
         except Exception as e:
             return {"error": f"Qwen 정제 호출 실패: {e}"}
 

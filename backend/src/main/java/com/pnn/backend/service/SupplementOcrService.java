@@ -8,12 +8,12 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 영양제 OCR 서비스
@@ -29,8 +29,13 @@ public class SupplementOcrService {
 
     public SupplementOcrResponseDto extractNutrients(MultipartFile image) {
         try {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(Duration.ofSeconds(10));
+            factory.setReadTimeout(Duration.ofSeconds(90)); // OCR + LLM 추론 대기 (기본값 대비 충분히 여유)
+
             RestClient restClient = RestClient.builder()
                     .baseUrl(aiServerUrl)
+                    .requestFactory(factory)
                     .build();
 
             MultipartBodyBuilder builder = new MultipartBodyBuilder();

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const interactionCheckScreenStyles = StyleSheet.create({
+export const inputScreenStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -75,6 +75,13 @@ export const interactionCheckScreenStyles = StyleSheet.create({
     backgroundColor: '#EA580C',
     marginRight: 8,
   },
+  summaryCardBarGreen: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: '#059669', // Emerald 600
+    marginRight: 8,
+  },
   summaryCardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -84,6 +91,11 @@ export const interactionCheckScreenStyles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  summaryCardNote: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 10,
   },
   summaryCardContent: {
     fontSize: 14,
@@ -102,5 +114,33 @@ export const interactionCheckScreenStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#9CA3AF',
+  },
+  drugListContainer: {
+    marginTop: 8,
+  },
+  drugListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  drugListItemText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  drugItemName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  drugEntpName: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  removeDrugButton: {
+    padding: 4,
   },
 });

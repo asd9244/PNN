@@ -163,7 +163,7 @@ export default function DrugListScreen({ navigation }: Props) {
   };
 
   const handleItemPress = (drugId: number) => {
-    navigation.navigate('DrugDetail', { drugId });
+    navigation.navigate('DrugDetail', { drugId, sourceScreen: params?.sourceScreen });
   };
 
   return (

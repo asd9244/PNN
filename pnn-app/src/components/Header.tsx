@@ -5,9 +5,10 @@ import { useNavigation } from '@react-navigation/native';
 
 interface HeaderProps {
   title: string;
+  rightComponent?: React.ReactNode;
 }
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({ title, rightComponent }: HeaderProps) {
   const navigation = useNavigation();
 
   return (
@@ -20,6 +21,7 @@ export default function Header({ title }: HeaderProps) {
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
       <Text style={styles.title}>{title}</Text>
+      {rightComponent && <View style={styles.rightContainer}>{rightComponent}</View>}
     </View>
   );
 }
@@ -42,5 +44,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827', // gray-900
+    flex: 1,
+  },
+  rightContainer: {
+    marginLeft: 'auto',
   },
 });

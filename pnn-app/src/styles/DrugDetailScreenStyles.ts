@@ -220,4 +220,34 @@ export const drugDetailScreenStyles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 4,
   },
+  durSubTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  durItemContainer: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  emptyDurText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  addDrugButton: {
+    backgroundColor: '#059669',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  addDrugButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
 });
