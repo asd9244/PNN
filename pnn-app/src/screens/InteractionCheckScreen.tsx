@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -35,6 +36,7 @@ export default function InteractionCheckScreen({ navigation }: Props) {
 
   const drugCount = interactionDrugs.length;
   const supplementCount = interactionSupplements.length;
+  const insets = useSafeAreaInsets();
 
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
@@ -137,7 +139,13 @@ export default function InteractionCheckScreen({ navigation }: Props) {
     <SafeAreaView style={styles.safeArea}>
       <Header title="약X영양제 비교" />
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+          style={styles.container}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 24 + insets.bottom },
+          ]}
+        >
         {/* 헤더 설명 */}
         <View style={styles.header}>
           <Text style={styles.subtitle}>
@@ -220,7 +228,23 @@ export default function InteractionCheckScreen({ navigation }: Props) {
                 <View key={drug.drugId} style={styles.drugListItem}>
                   <View style={styles.drugListItemText}>
                     <Text style={styles.drugItemName} numberOfLines={1}>{drug.itemName}</Text>
-                    <Text style={styles.drugEntpName} numberOfLines={1}>{drug.entpName}</Text>
+                    <View style={{ marginTop: 4 }}>
+                      {(drug.ingredientNamesEng ?? []).length > 0
+                        ? (drug.ingredientNamesEng ?? []).map((name, i) => (
+                            <Text
+                              key={`${drug.drugId}-ing-${i}`}
+                              style={styles.drugEntpName}
+                              numberOfLines={2}
+                            >
+                              • {name}
+                            </Text>
+                          ))
+                        : (
+                            <Text style={styles.drugEntpName} numberOfLines={1}>
+                              성분 정보 없음
+                            </Text>
+                          )}
+                    </View>
                   </View>
                   <TouchableOpacity 
                     style={styles.removeDrugButton} 

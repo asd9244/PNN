@@ -1,8 +1,9 @@
 """
-상호작용 분석 API (Case A) — Gemini 3 Flash 기반
+상호작용 분석 API (Case A) — Gemini 기반
 
 흐름: Spring Boot가 drug + supplements JSON 전달 → 이 모듈이 Gemini 호출 → JSON 파싱 후 반환
-등급: SAFE(병용 안전), CAUTION(시간 간격 필요), WARNING(복용 기간 내 중단 권장), SYNERGY(시너지)
+등급: WARNING(위험/주의 필요), SAFE(병용 안전) 만 사용. CAUTION·SYNERGY는 출력하지 않음.
+후처리: WARNING은 개수 제한 없음, SAFE는 최대 2건까지만 반환.
 """
 import json
 import logging
@@ -50,7 +51,7 @@ class InteractionItem(BaseModel):
     """분석된 개별 상호작용 결과 1건"""
     nutrient: str
     contraindicated_drug_ingredient: str
-    level: str  # SAFE | CAUTION | WARNING | SYNERGY
+    level: str  # SAFE | WARNING (API 응답은 이 둘만 사용)
     description: str
     action_guide: str
     sources: list[str] = Field(default_factory=list)
@@ -67,14 +68,16 @@ class InteractionAnalyzeResponse(BaseModel):
 
 SYSTEM_PROMPT = """당신은 약물-영양제 상호작용을 분석하는 전문 AI입니다.
 [강력한 규칙 - 반드시 준수]
-1. 알려진 문헌/근거가 없는 상호작용은 추측하지 말고, "정보 부족" 또는 SAFE로 분류하세요.
+1. 알려진 문헌/근거가 없는 상호작용은 추측하지 말고, 해당 영양-약물 쌍은 interactions에 넣지 말거나 SAFE로만 분류하세요.
 2. "치료", "완치", "예방" 등 의학적 효능을 암시하는 표현을 사용하지 마세요.
 3. 출력은 반드시 유효한 JSON만 반환하세요. 마크다운 코드블록이나 설명 텍스트를 붙이지 마세요.
-4. level은 반드시 SAFE, CAUTION, WARNING, SYNERGY 중 하나여야 합니다.
+4. level은 반드시 WARNING 또는 SAFE 둘 중 하나만 사용하세요.
+5. WARNING: 흡수 저하, 상승된 위험, 병용 시 조정이 필요하다고 알려진 경우 등 실제 위험이 의심될 때만 사용하세요.
+6. SAFE: 문헌상 병용 시 특별한 문제가 없다고 알려진 경우에만 사용하세요. SAFE 항목은 최대 2개까지만 넣으세요(가장 대표적인 영양 성분 위주). WARNING 항목 개수에는 제한이 없습니다.
 
 필수 JSON 형식:
 {"interactions": [
-  {"nutrient": "영문 성분명", "contraindicated_drug_ingredient": "처방약 성분명", "level": "SAFE|CAUTION|WARNING|SYNERGY", "description": "한국어 설명", "action_guide": "한국어 행동 지침", "sources": []}
+  {"nutrient": "영문 성분명", "contraindicated_drug_ingredient": "처방약 성분명", "level": "WARNING 또는 SAFE", "description": "한국어 설명", "action_guide": "한국어 행동 지침", "sources": []}
 ]}
 """
 
@@ -94,7 +97,34 @@ def _build_user_prompt(drug_name: str, drug_ingredients: list[str], supplements:
 [기복용 영양제]
 {supp_str}
 
-위 처방약과 영양제 간의 상호작용을 분석하고, 지정된 JSON 형식으로만 응답하세요. 상호작용이 없으면 interactions를 빈 배열로 반환하세요."""
+위 처방약과 영양제 간의 상호작용을 분석하고, 지정된 JSON 형식으로만 응답하세요.
+level은 WARNING과 SAFE만 사용하세요. SAFE는 최대 2개까지만 포함하세요. 위험이 의심되지 않으면 interactions를 빈 배열로 반환해도 됩니다."""
+
+
+def _normalize_level(raw: str) -> str:
+    """LLM이 구등급을 반환한 경우 WARNING/SAFE로만 정규화."""
+    lv = (raw or "").upper().strip()
+    if lv in ("WARNING", "CAUTION", "DANGER", "RISK"):
+        return "WARNING"
+    if lv in ("SAFE", "SYNERGY", "OK"):
+        return "SAFE"
+    return "SAFE"
+
+
+def _normalize_and_limit_safe(items: list[InteractionItem]) -> list[InteractionItem]:
+    """
+    WARNING은 전부 유지, SAFE는 최대 2개만 유지(앞쪽 우선).
+    """
+    warnings: list[InteractionItem] = []
+    safes: list[InteractionItem] = []
+    for it in items:
+        lv = (it.level or "").upper().strip()
+        if lv == "WARNING":
+            warnings.append(it.model_copy(update={"level": "WARNING"}))
+        elif lv == "SAFE":
+            safes.append(it.model_copy(update={"level": "SAFE"}))
+    safes = safes[:2]
+    return warnings + safes
 
 
 def _parse_llm_response(text: str) -> list[InteractionItem]:
@@ -106,15 +136,17 @@ def _parse_llm_response(text: str) -> list[InteractionItem]:
         result = []
         for item in items:
             if isinstance(item, dict):
+                raw_level = item.get("level", "SAFE")
+                norm = _normalize_level(str(raw_level))
                 result.append(InteractionItem(
                     nutrient=item.get("nutrient", ""),
                     contraindicated_drug_ingredient=item.get("contraindicated_drug_ingredient", ""),
-                    level=item.get("level", "CAUTION"),
+                    level=norm,
                     description=item.get("description", ""),
                     action_guide=item.get("action_guide", ""),
                     sources=item.get("sources", []),
                 ))
-        return result
+        return _normalize_and_limit_safe(result)
     except json.JSONDecodeError as e:
         logger.warning(f"LLM JSON 파싱 실패: {e}\n원문: {text[:500]}")
         return []
@@ -128,7 +160,7 @@ def _parse_llm_response(text: str) -> list[InteractionItem]:
 def analyze_interaction(analyzeRequest: InteractionAnalyzeRequest):
     """
     처방약 + 영양제 상호작용 분석 (Case A).
-    Gemini 3 Flash를 사용하여 SAFE/CAUTION/WARNING/SYNERGY 등급으로 결과 반환.
+    WARNING(위험) / SAFE(안전) 만 반환. SAFE는 최대 2건.
     """
     try:
         # DB에 영문 성분이 없으면 정밀 분석 불가 → 상담 권장 메시지 반환
@@ -150,6 +182,7 @@ def analyze_interaction(analyzeRequest: InteractionAnalyzeRequest):
             analyzeRequest.supplements,
         )
         response_text = chat(prompt=user_prompt, system=SYSTEM_PROMPT)
+        print(f"[LLM 응답]\n{response_text}")
         interactions = _parse_llm_response(response_text)
 
         return InteractionAnalyzeResponse(interactions=interactions)

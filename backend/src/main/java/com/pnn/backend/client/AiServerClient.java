@@ -7,8 +7,11 @@ import com.pnn.backend.client.dto.AiRecommendationResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 /**
  * Python AI 서버와 통신하는 RestClient 래퍼
@@ -24,9 +27,13 @@ public class AiServerClient {
 
     public AiServerClient(
             @Value("${ai.server.url:http://localhost:8000}") String baseUrl) {
-        // application.yml의 ai.server.url 또는 기본 localhost:8000
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(90)); // LLM 추론 대기 (Gemini 등)
+
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .requestFactory(factory)
                 .defaultHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }

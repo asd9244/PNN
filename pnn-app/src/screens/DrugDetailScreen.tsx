@@ -62,10 +62,16 @@ export default function DrugDetailScreen({ navigation }: Props) {
   const handleAddDrug = () => {
     if (!data || !sourceScreen) return;
 
+    const engList =
+      data.drugInfo?.ingredientNamesEng?.filter(
+        (s): s is string => typeof s === 'string' && s.trim().length > 0
+      ) ?? [];
+
     const selectedDrug: SelectedDrug = {
       drugId,
       itemName: data.header?.itemName ?? '이름 없음',
       entpName: data.drugInfo?.entpName ?? '제조사 없음',
+      ingredientNamesEng: engList,
     };
 
     if (sourceScreen === 'InteractionCheck') {

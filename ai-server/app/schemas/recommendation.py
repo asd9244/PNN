@@ -7,24 +7,30 @@ from typing import List
 
 class RecommendationAnalyzeRequest(BaseModel):
     """
-    Spring Boot 서버로부터 수신하는 안전 영양제 추천 분석 요청 (Case B)
+    Spring Boot 서버로부터 수신하는 안전 영양제 추천 분석 요청 (Case B).
     """
-    patient_drugs: List[str] = Field(..., description="환자가 복용 중인 처방약 성분명 목록 (영문)")
-    contraindicated_nutrients: List[str] = Field(..., description="병용 금기 영양 성분명 목록 (AI가 회피해야 할 목록, 영문)")
+    condition: str = Field(default="", description="사용자의 기저 질환 또는 병명 (선택)")
+    patient_drugs: List[str] = Field(..., description="복용 중인 약: 제품명·영문 성분 등")
 
 
 class RecommendedNutrient(BaseModel):
     """
     개별 추천 영양 성분
     """
-    name: str = Field(..., description="추천 영양 성분명 (반드시 영문, 예: Magnesium)")
-    reason_kr: str = Field(..., description="추천 사유 (보수적이고 일상적인 건강 유지 목적의 설명, 한국어)")
+    name_en: str = Field(..., description="영문 성분명 (예: Magnesium)")
+    name_kr: str = Field(..., description="한글 성분명 (예: 마그네슘)")
+    reason: str = Field(..., description="한국어로 작성된 보수적 추천 사유")
+    precaution: str = Field(..., description="일반적인 복용 주의사항")
 
 
 class RecommendationAnalyzeResponse(BaseModel):
     """
     Spring Boot 서버로 반환하는 안전 영양제 추천 분석 결과 (Case B)
     """
+    interaction_analysis: str = Field(
+        default="",
+        description="입력된 약물과 질환을 바탕으로 한 내부적인 상호작용 및 안전성 검토 과정"
+    )
     recommended_nutrients: List[RecommendedNutrient] = Field(
         default_factory=list,
         description="최종 추천된 안전 영양 성분 목록"

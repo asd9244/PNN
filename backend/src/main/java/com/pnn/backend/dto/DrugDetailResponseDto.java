@@ -62,6 +62,8 @@ public class DrugDetailResponseDto {
         private String mainIngrCode;    // 주성분 코드 (drug_price_master)
         private String className;      // 분류명 (drugs_master)
         private String atcCode;        // ATC코드 (drug_price_master)
+        /** 영문 주성분명 목록 (drug_ingredients 우선, 없으면 drug_permit_detail.ingr_name_eng 1건) */
+        private List<String> ingredientNamesEng;
     }
 
     /**

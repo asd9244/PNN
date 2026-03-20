@@ -122,8 +122,21 @@ public class DrugDetailService {
                                 .durWarnings(durWarnings)
                                 .build();
 
-                // 6. 수집한 모든 데이터를 DrugDetailResponseDto로 변환(조립)
-                return buildResponseDto(master, permit, easyInfo, price, combinedKorIngredients, durInfo);
+                // 6. 영문 성분명 목록 (상세·앱 요약용)
+                List<String> ingredientNamesEng = ingredients.stream()
+                                .map(DrugIngredient::getIngrNameEng)
+                                .filter(n -> n != null && !n.trim().isEmpty())
+                                .map(String::trim)
+                                .distinct()
+                                .toList();
+                if (ingredientNamesEng.isEmpty() && permit != null && permit.getIngrNameEng() != null
+                                && !permit.getIngrNameEng().isBlank()) {
+                        ingredientNamesEng = List.of(permit.getIngrNameEng().trim());
+                }
+
+                // 7. 수집한 모든 데이터를 DrugDetailResponseDto로 변환(조립)
+                return buildResponseDto(master, permit, easyInfo, price, combinedKorIngredients, durInfo,
+                                ingredientNamesEng);
         }
 
         /**
@@ -131,7 +144,8 @@ public class DrugDetailService {
          */
         private DrugDetailResponseDto buildResponseDto(
                         DrugsMaster master, DrugPermitDetail permit, DrugEasyInfo easyInfo, DrugPriceMaster price,
-                        String combinedKorIngredients, DrugDetailResponseDto.DurInfo durInfo) {
+                        String combinedKorIngredients, DrugDetailResponseDto.DurInfo durInfo,
+                        List<String> ingredientNamesEng) {
 
                 // --- 0. HeaderInfo 영역 (기본적으로 permit을 우선시하고 없으면 master 사용) ---
                 String headerItemName = (permit != null && permit.getItemName() != null) ? permit.getItemName()
@@ -161,6 +175,9 @@ public class DrugDetailService {
                                 .mainIngrCode(price != null ? price.getMainIngrCode() : null)
                                 .className(master.getClassName())
                                 .atcCode(price != null ? price.getAtcCode() : null)
+                                .ingredientNamesEng(ingredientNamesEng != null && !ingredientNamesEng.isEmpty()
+                                                ? ingredientNamesEng
+                                                : null)
                                 .build();
 
                 // --- 2. MedicationInfo 영역 (쉬운 복약 정보) ---

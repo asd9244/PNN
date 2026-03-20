@@ -39,7 +39,7 @@ export type RootStackParamList = {
   InteractionAddDrug: undefined;
   InteractionResult: { result: any } | undefined;
   Recommendation: undefined;
-  RecommendationResult: undefined;
+  RecommendationResult: { result: any } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

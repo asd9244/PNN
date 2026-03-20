@@ -12,6 +12,9 @@ import java.util.List;
 @Data
 public class AiRecommendationResponse {
 
+    @JsonProperty("interaction_analysis")
+    private String interactionAnalysis;
+
     /** 추천 영양 성분 목록 */
     @JsonProperty("recommended_nutrients")
     private List<RecommendedNutrient> recommendedNutrients;
@@ -19,10 +22,13 @@ public class AiRecommendationResponse {
     /** 개별 추천 영양 성분 */
     @Data
     public static class RecommendedNutrient {
-        /** 영양 성분명 (영문) */
-        private String name;
-        /** 추천 사유 (한국어) */
-        @JsonProperty("reason_kr")
-        private String reasonKr;
+        @JsonProperty("name_en")
+        private String nameEn;
+        
+        @JsonProperty("name_kr")
+        private String nameKr;
+        
+        private String reason;
+        private String precaution;
     }
 }

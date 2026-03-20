@@ -100,9 +100,11 @@ export interface InteractionCompareRequest {
 }
 
 export interface InteractionItem {
+  drugName?: string;
   nutrient: string;
   contraindicatedDrugIngredient: string;
-  level: string; // SAFE, CAUTION, WARNING, SYNERGY
+  /** SAFE | WARNING */
+  level: string;
   description: string;
   actionGuide: string;
   sources: string[];
@@ -115,9 +117,39 @@ export interface InteractionCompareResponse {
 export async function compareInteractions(
   requestData: InteractionCompareRequest
 ): Promise<InteractionCompareResponse> {
+  // LLM 분석(30~90초) 대비 타임아웃 2분
   const { data } = await apiClient.post<InteractionCompareResponse>(
     '/api/interaction/check',
-    requestData
+    requestData,
+    { timeout: 120000 }
+  );
+  return data;
+}
+
+export interface RecommendationRequest {
+  drugIds: number[];
+  condition?: string;
+}
+
+export interface RecommendedNutrient {
+  nameEn: string;
+  nameKr: string;
+  reason: string;
+  precaution: string;
+}
+
+export interface RecommendationResponse {
+  interactionAnalysis: string;
+  recommendedNutrients: RecommendedNutrient[];
+}
+
+export async function getRecommendations(
+  requestData: RecommendationRequest
+): Promise<RecommendationResponse> {
+  const { data } = await apiClient.post<RecommendationResponse>(
+    '/api/recommendations/safe-nutrients',
+    requestData,
+    { timeout: 120000 }
   );
   return data;
 }

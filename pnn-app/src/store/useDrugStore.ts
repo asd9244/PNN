@@ -3,7 +3,10 @@ import { create } from 'zustand';
 export type SelectedDrug = {
   drugId: number;
   itemName: string;
+  /** 표시용으로 유지 (검색·목록 등). 상호작용/추천 요약에는 ingredientNamesEng 사용 */
   entpName: string;
+  /** 영문 성분명 (약 정보 요약 리스트에 표시). 구버전 스토어 호환 시 생략될 수 있음 */
+  ingredientNamesEng?: string[];
 };
 
 export type Nutrient = {

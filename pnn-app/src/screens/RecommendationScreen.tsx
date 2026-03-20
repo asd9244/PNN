@@ -6,10 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {NativeStackNavigationProp} from "@react-navigation/native-stack";
 import {RootStackParamList} from "../navigation/AppNavigator";
 import {useDrugStore} from "../store/useDrugStore";
-import {Ionicons} from "@expo/vector-icons";
+import { getRecommendations } from '../api/ocr';
+import { ActivityIndicator, TextInput, Alert } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
 
 import Header from "../components/Header";
 import ActionCard from "../components/ActionCard";
@@ -32,8 +35,30 @@ export default function RecommendationScreen({navigation}: Props) {
     (state) => state.removeRecommendationDrug,
   );
   const drugCount = recommendationDrugs.length;
+  const insets = useSafeAreaInsets();
+
+  const [condition, setCondition] = React.useState('');
+  const [isRecommending, setIsRecommending] = React.useState(false);
 
   const canRecommend = drugCount > 0;
+
+  const handleRecommend = async () => {
+    if (!canRecommend) return;
+    
+    setIsRecommending(true);
+    try {
+      const response = await getRecommendations({
+        drugIds: recommendationDrugs.map(d => d.drugId),
+        condition: condition.trim() || undefined,
+      });
+      
+      navigation.navigate("RecommendationResult", { result: response });
+    } catch (error: any) {
+      Alert.alert('추천 실패', error.message || '영양제 추천 중 오류가 발생했습니다.');
+    } finally {
+      setIsRecommending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -41,7 +66,10 @@ export default function RecommendationScreen({navigation}: Props) {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {paddingBottom: 24 + insets.bottom},
+        ]}
       >
         {/* 헤더 설명 */}
         <View style={styles.header}>
@@ -86,6 +114,29 @@ export default function RecommendationScreen({navigation}: Props) {
           </View>
         </View>
 
+        {/* 기저 질환 입력 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>기저 질환 / 건강 고민 (선택)</Text>
+          <Text style={styles.sectionSubtitle}>
+            고민인 증상이나 질환을 입력하시면 맞춤 추천에 도움이 됩니다.
+          </Text>
+          <TextInput
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 16,
+              fontSize: 15,
+              color: '#111827',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+            }}
+            placeholder="예) 고혈압, 당뇨, 최근 피로감 등"
+            value={condition}
+            onChangeText={setCondition}
+            maxLength={50}
+          />
+        </View>
+
         {/* 처방약 요약 */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryCardHeader}>
@@ -107,9 +158,23 @@ export default function RecommendationScreen({navigation}: Props) {
                     <Text style={styles.drugItemName} numberOfLines={1}>
                       {drug.itemName}
                     </Text>
-                    <Text style={styles.drugEntpName} numberOfLines={1}>
-                      {drug.entpName}
-                    </Text>
+                    <View style={{ marginTop: 4 }}>
+                      {(drug.ingredientNamesEng ?? []).length > 0
+                        ? (drug.ingredientNamesEng ?? []).map((name, i) => (
+                            <Text
+                              key={`${drug.drugId}-ing-${i}`}
+                              style={styles.drugEntpName}
+                              numberOfLines={2}
+                            >
+                              • {name}
+                            </Text>
+                          ))
+                        : (
+                            <Text style={styles.drugEntpName} numberOfLines={1}>
+                              성분 정보 없음
+                            </Text>
+                          )}
+                    </View>
                   </View>
                   <TouchableOpacity
                     style={styles.removeDrugButton}
@@ -130,20 +195,22 @@ export default function RecommendationScreen({navigation}: Props) {
             styles.bottomButton,
             canRecommend && {backgroundColor: "#059669"},
           ]}
-          onPress={() =>
-            canRecommend && navigation.navigate("RecommendationResult")
-          }
-          disabled={!canRecommend}
+          onPress={handleRecommend}
+          disabled={!canRecommend || isRecommending}
           activeOpacity={0.7}
         >
-          <Text
-            style={[
-              styles.bottomButtonText,
-              canRecommend && {color: "#FFFFFF"},
-            ]}
-          >
-            맞춤 영양제 추천받기
-          </Text>
+          {isRecommending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text
+              style={[
+                styles.bottomButtonText,
+                canRecommend && {color: "#FFFFFF"},
+              ]}
+            >
+              맞춤 영양제 추천받기
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

@@ -26,6 +26,8 @@ public class InteractionCheckResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class InteractionItem {
+        /** 상호작용 대상 처방약 이름 */
+        private String drugName;
         /** 영양 성분명 */
         private String nutrient;
         /** 상호작용이 있는 처방약 성분명 */

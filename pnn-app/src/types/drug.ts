@@ -62,6 +62,8 @@ export interface DrugDetailDrugInfo {
   mainIngrCode: string;
   className: string;
   atcCode: string;
+  /** 영문 주성분명 (백엔드 drug_ingredients / permit fallback) */
+  ingredientNamesEng?: string[] | null;
 }
 
 export interface DrugDetailMedicationInfo {

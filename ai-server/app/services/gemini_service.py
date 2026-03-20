@@ -1,7 +1,7 @@
 """
 Gemini 3 Flash API 연동 서비스 (Case A/B, OCR 정형화용)
 
-- google-genai SDK 사용. 모델: gemini-3-flash-preview
+- google-genai SDK 사용. 기본 모델: gemini-3-flash-preview (ListModels 기준)
 - .env의 GEMINI_API_KEY 또는 config에서 API 키 로드
 - get_client(): 한 번만 생성해 재사용 (싱글톤)
 - chat(): 프롬프트 전송 후 응답 텍스트 반환

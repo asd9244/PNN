@@ -54,7 +54,7 @@ pnn-app/
   1. `InteractionCheckScreen`: 기능 소개 및 '처방약 추가', '영양제 사진 업로드' 버튼 제공.
   2. `Camera/ImagePicker`: 영양제 성분표 촬영 → FastAPI(`/supplement/extract`) 호출 → JSON 파싱 데이터 상태 저장.
   3. `InteractionAddDrugScreen`: 처방약 검색 후 선택 → `drugId` 상태 저장.
-  4. `InteractionResultScreen`: 수집된 `drugId`와 영양제 JSON을 Spring Boot(`/api/interaction/check`)로 전송 → 분석 결과(SAFE/CAUTION/WARNING) 렌더링.
+  4. `InteractionResultScreen`: 수집된 `drugId`와 영양제 JSON을 Spring Boot(`/api/interaction/check`)로 전송 → 분석 결과(SAFE/WARNING 등) 렌더링.
 
 ### 4.3 Case B: 안전 영양제 추천 (Recommendation Flow)
 * **흐름**:

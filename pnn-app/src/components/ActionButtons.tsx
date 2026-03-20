@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ActionButtonsProps {
@@ -9,8 +10,10 @@ interface ActionButtonsProps {
 }
 
 export default function ActionButtons({ onReset, onSubmit, submitText = "검색하기" }: ActionButtonsProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 12 + insets.bottom }]}>
       <TouchableOpacity onPress={onReset} style={styles.resetButton}>
         <Ionicons name="refresh" size={20} color="#4B5563" style={styles.icon} />
         <Text style={styles.resetText}>초기화</Text>
