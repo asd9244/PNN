@@ -59,8 +59,12 @@ export default function InteractionResultScreen({navigation}: any) {
     }));
   };
 
+  /** 성분 데이터 부족 등으로 표시만 하던 항목(알 수 없음)은 약 추가 단계에서 걸러지므로 결과에서 제외 */
+  const visibleInteractions =
+    result?.interactions?.filter((item: any) => item.nutrient !== "알 수 없음") ?? [];
+
   // 데이터를 약 이름 기준으로 그룹화
-  const groupedInteractions = result?.interactions?.reduce((acc: any, item: any) => {
+  const groupedInteractions = visibleInteractions.reduce((acc: any, item: any) => {
     const key = item.drugName || "이름 없는 약품";
     if (!acc[key]) {
       acc[key] = [];
@@ -94,11 +98,9 @@ export default function InteractionResultScreen({navigation}: any) {
             분석 결과 요약
           </Text>
           <Text>
-            {result?.interactions?.filter((item: any) => item.nutrient !== '알 수 없음').length > 0
+            {visibleInteractions.length > 0
               ? "상호작용이 감지된 항목이 있습니다."
-              : result?.interactions?.length > 0 && result.interactions.every((item: any) => item.nutrient === '알 수 없음')
-                ? "약품의 성분 데이터가 부족하여 정밀 분석이 불가능한 항목이 있습니다."
-                : "특이한 상호작용이 발견되지 않았습니다."}
+              : "특이한 상호작용이 발견되지 않았습니다."}
           </Text>
         </View>
 
@@ -183,11 +185,7 @@ export default function InteractionResultScreen({navigation}: any) {
                 {isExpanded && (
                   <View style={{ marginTop: 8 }}>
                     {items.map((item: any, index: number) => {
-                      const isMissingData = item.nutrient === "알 수 없음";
                       const visual = getLevelVisual(item.level);
-                      const levelTitle = isMissingData
-                        ? "데이터 부족"
-                        : visual.label;
 
                       return (
                         <View
@@ -207,7 +205,7 @@ export default function InteractionResultScreen({navigation}: any) {
                               marginBottom: 4,
                             }}
                           >
-                            {levelTitle}
+                            {visual.label}
                           </Text>
 
                           <Text
@@ -218,18 +216,14 @@ export default function InteractionResultScreen({navigation}: any) {
                               marginBottom: 8,
                             }}
                           >
-                            {isMissingData
-                              ? item.description
-                              : `${item.nutrient} × ${item.contraindicatedDrugIngredient}`}
+                            {`${item.nutrient} × ${item.contraindicatedDrugIngredient}`}
                           </Text>
 
-                          {!isMissingData && (
-                            <Text
-                              style={{ color: "#374151", marginBottom: 12, lineHeight: 20 }}
-                            >
-                              {item.description}
-                            </Text>
-                          )}
+                          <Text
+                            style={{ color: "#374151", marginBottom: 12, lineHeight: 20 }}
+                          >
+                            {item.description}
+                          </Text>
 
                           <View
                             style={{
@@ -239,7 +233,7 @@ export default function InteractionResultScreen({navigation}: any) {
                             }}
                           >
                             <Text style={{ color: "#111827", fontWeight: "500" }}>
-                              {isMissingData ? "안내 사항" : "안전 복약 가이드"}
+                              안전 복약 가이드
                             </Text>
                             <Text style={{ color: "#374151", marginTop: 4 }}>
                               {item.actionGuide}

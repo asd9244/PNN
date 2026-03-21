@@ -155,26 +155,36 @@ export default function RecommendationScreen({navigation}: Props) {
               {recommendationDrugs.map((drug) => (
                 <View key={drug.drugId} style={styles.drugListItem}>
                   <View style={styles.drugListItemText}>
-                    <Text style={styles.drugItemName} numberOfLines={1}>
-                      {drug.itemName}
-                    </Text>
-                    <View style={{ marginTop: 4 }}>
-                      {(drug.ingredientNamesEng ?? []).length > 0
-                        ? (drug.ingredientNamesEng ?? []).map((name, i) => (
-                            <Text
-                              key={`${drug.drugId}-ing-${i}`}
-                              style={styles.drugEntpName}
-                              numberOfLines={2}
-                            >
-                              • {name}
-                            </Text>
-                          ))
-                        : (
-                            <Text style={styles.drugEntpName} numberOfLines={1}>
-                              성분 정보 없음
-                            </Text>
-                          )}
-                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate("DrugDetail", {
+                          drugId: drug.drugId,
+                          sourceScreen: "Recommendation",
+                        })
+                      }
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+                    >
+                      <Text
+                        style={[styles.drugItemName, styles.drugItemNameLink]}
+                        numberOfLines={1}
+                      >
+                        {drug.itemName}
+                      </Text>
+                    </TouchableOpacity>
+                    {(drug.ingredientNamesEng ?? []).length > 0 ? (
+                      <View style={{ marginTop: 4 }}>
+                        {(drug.ingredientNamesEng ?? []).map((name, i) => (
+                          <Text
+                            key={`${drug.drugId}-ing-${i}`}
+                            style={styles.drugEntpName}
+                            numberOfLines={2}
+                          >
+                            • {name}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                   <TouchableOpacity
                     style={styles.removeDrugButton}

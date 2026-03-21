@@ -1,7 +1,8 @@
 import React from 'react';
-import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
+import { Text, View, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { recommendationResultScreenStyles as styles } from '../styles';
 import Header from '../components/Header';
@@ -9,40 +10,16 @@ import { RecommendationResponse, RecommendedNutrient } from '../api/ocr';
 import { Ionicons } from '@expo/vector-icons';
 
 type RecommendationResultRouteProp = RouteProp<RootStackParamList, 'RecommendationResult'>;
+type RecommendationResultNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'RecommendationResult'
+>;
 
-export default function RecommendationResultScreen({ navigation }: any) {
+export default function RecommendationResultScreen() {
   const route = useRoute<RecommendationResultRouteProp>();
+  const navigation = useNavigation<RecommendationResultNavigationProp>();
   const result: RecommendationResponse = route.params?.result;
   const insets = useSafeAreaInsets();
-
-  const handleLinkOpen = async (type: 'iherb' | 'coupang', keyword: string) => {
-    let url = '';
-    const encodedKeyword = encodeURIComponent(keyword);
-
-    if (type === 'iherb') {
-      // iHerb 검색 URL
-      url = `https://kr.iherb.com/search?kw=${encodedKeyword}`;
-    } else {
-      // Coupang 검색 URL
-      if (Platform.OS === 'web') {
-        url = `https://www.coupang.com/np/search?component=&q=${encodedKeyword}`;
-      } else {
-        // 앱의 경우 쿠팡 앱 스킴을 시도하거나 웹으로 풀백
-        url = `https://m.coupang.com/nm/search?q=${encodedKeyword}`;
-      }
-    }
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        await Linking.openURL(url); // 보통 웹 브라우저로 폴백
-      }
-    } catch (error) {
-      console.error('링크 열기 실패:', error);
-    }
-  };
 
   const renderNutrientCard = (nutrient: RecommendedNutrient, index: number) => {
     return (
@@ -54,34 +31,13 @@ export default function RecommendationResultScreen({ navigation }: any) {
 
         <View style={styles.cardBody}>
           <View style={styles.reasonBlock}>
-            <Text style={styles.blockLabel}>💡 추천 사유</Text>
+            <Text style={styles.blockLabel}>추천 사유</Text>
             <Text style={styles.blockText}>{nutrient.reason}</Text>
           </View>
           
           <View style={styles.precautionBlock}>
-            <Text style={styles.blockLabel}>⚠️ 주의사항</Text>
+            <Text style={styles.blockLabel}>주의사항</Text>
             <Text style={styles.blockText}>{nutrient.precaution}</Text>
-          </View>
-        </View>
-
-        <View style={styles.linkContainer}>
-          <Text style={styles.linkTitle}>이 성분이 포함된 제품 찾아보기</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.linkButton, styles.coupangButton]} 
-              onPress={() => handleLinkOpen('coupang', nutrient.nameKr + ' 영양제')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.coupangButtonText}>Coupang</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.linkButton, styles.iherbButton]} 
-              onPress={() => handleLinkOpen('iherb', nutrient.nameEn + ' supplement')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.iherbButtonText}>iHerb</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -129,6 +85,25 @@ export default function RecommendationResultScreen({ navigation }: any) {
             새로운 영양제를 복용하기 전에는 반드시 담당 의사 또는 약사와 상담하시기 바랍니다.
           </Text>
         </View>
+
+        {result?.recommendedNutrients && result.recommendedNutrients.length > 0 ? (
+          <View style={styles.bottomProductSearchSection}>
+            <TouchableOpacity
+              style={styles.productSearchButton}
+              onPress={() =>
+                navigation.navigate('ProductSearchLinks', {
+                  nutrients: result.recommendedNutrients.map((n) => ({
+                    nameKr: n.nameKr,
+                    nameEn: n.nameEn,
+                  })),
+                })
+              }
+              activeOpacity={0.8}
+            >
+              <Text style={styles.productSearchButtonText}>이 성분이 포함된 제품 찾아보기</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

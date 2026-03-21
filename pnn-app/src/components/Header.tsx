@@ -20,8 +20,14 @@ export default function Header({ title, rightComponent }: HeaderProps) {
       >
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
-      <Text style={styles.title}>{title}</Text>
-      {rightComponent && <View style={styles.rightContainer}>{rightComponent}</View>}
+      <View style={styles.titleWrap} pointerEvents="box-none">
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {title}
+        </Text>
+      </View>
+      {rightComponent ? (
+        <View style={styles.rightContainer}>{rightComponent}</View>
+      ) : null}
     </View>
   );
 }
@@ -40,13 +46,19 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
   },
+  titleWrap: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    marginRight: 8,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827', // gray-900
-    flex: 1,
   },
   rightContainer: {
-    marginLeft: 'auto',
+    zIndex: 2,
+    elevation: 4,
   },
 });

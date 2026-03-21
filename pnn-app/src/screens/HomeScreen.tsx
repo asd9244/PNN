@@ -72,14 +72,14 @@ export default function HomeScreen({ navigation }: Props) {
           <ActionCard
             title="약X영양제 비교"
             description="현재 먹고 있는 처방약과 영양제가 충돌하는지 검사합니다."
-            iconName="shield-checkmark-outline"
+            iconName="git-compare-outline"
             onPress={() => navigation.navigate('InteractionCheck')}
           />
 
           <ActionCard
             title="영양제 추천"
             description="내 처방약에 맞는 안전하고 효과적인 영양제를 추천받습니다."
-            iconName="sparkles-outline"
+            iconName="medical-outline"
             onPress={() => navigation.navigate('Recommendation')}
           />
         </View>

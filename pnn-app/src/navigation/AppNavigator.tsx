@@ -12,6 +12,7 @@ import InteractionAddDrugScreen from '../screens/InteractionAddDrugScreen';
 import InteractionResultScreen from '../screens/InteractionResultScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
 import RecommendationResultScreen from '../screens/RecommendationResultScreen';
+import ProductSearchLinksScreen from '../screens/ProductSearchLinksScreen';
 import PillIdentifyScreen from '../screens/PillIdentifyScreen';
 
 export type SourceScreenType = 'InteractionCheck' | 'Recommendation';
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   InteractionResult: { result: any } | undefined;
   Recommendation: undefined;
   RecommendationResult: { result: any } | undefined;
+  ProductSearchLinks: { nutrients: { nameKr: string; nameEn: string }[] };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,7 +56,11 @@ export default function AppNavigator() {
         <Stack.Screen name="DrugSearch" component={DrugSearchScreen} options={{ title: '상세검색' }} />
         <Stack.Screen name="PillIdentify" component={PillIdentifyScreen} options={{ title: '식별검색' }} />
         <Stack.Screen name="DrugList" component={DrugListScreen} options={{ title: '약품 목록' }} />
-        <Stack.Screen name="DrugDetail" component={DrugDetailScreen} options={{ title: '약 상세 정보' }} />
+        <Stack.Screen
+          name="DrugDetail"
+          component={DrugDetailScreen}
+          options={{ headerShown: false }}
+        />
         
         {/* 상호작용 충돌 검사 (Case A) */}
         <Stack.Screen name="InteractionCheck" component={InteractionCheckScreen} options={{ title: '약X영양제 비교' }} />
@@ -64,6 +70,7 @@ export default function AppNavigator() {
         {/* 안전 영양제 추천 (Case B) */}
         <Stack.Screen name="Recommendation" component={RecommendationScreen} options={{ title: '영양제 추천' }} />
         <Stack.Screen name="RecommendationResult" component={RecommendationResultScreen} options={{ title: '추천 결과' }} />
+        <Stack.Screen name="ProductSearchLinks" component={ProductSearchLinksScreen} options={{ title: '제품 검색 링크' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

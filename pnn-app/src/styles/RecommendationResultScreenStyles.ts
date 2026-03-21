@@ -91,40 +91,18 @@ export const recommendationResultScreenStyles = StyleSheet.create({
     color: '#4B5563',
     lineHeight: 22,
   },
-  linkContainer: {
-    marginTop: 8,
+  bottomProductSearchSection: {
+    marginTop: 20,
+    marginBottom: 8,
   },
-  linkTitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  linkButton: {
-    flex: 1,
-    paddingVertical: 12,
+  productSearchButton: {
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#8A2BE2',
   },
-  coupangButton: {
-    backgroundColor: '#CB1400',
-  },
-  coupangButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  iherbButton: {
-    backgroundColor: '#27B139',
-  },
-  iherbButtonText: {
+  productSearchButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 15,

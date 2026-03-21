@@ -136,6 +136,10 @@ export const inputScreenStyles = StyleSheet.create({
     color: '#111827',
     marginBottom: 4,
   },
+  /** 요약 리스트에서 약품명 탭 시 상세로 이동할 때 사용 */
+  drugItemNameLink: {
+    color: '#2563EB',
+  },
   drugEntpName: {
     fontSize: 12,
     color: '#6B7280',

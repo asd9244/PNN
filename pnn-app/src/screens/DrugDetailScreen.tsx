@@ -7,6 +7,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -61,6 +63,10 @@ export default function DrugDetailScreen({ navigation }: Props) {
 
   const handleAddDrug = () => {
     if (!data || !sourceScreen) return;
+    if (drugId == null || !Number.isFinite(Number(drugId))) {
+      Alert.alert('오류', '약품 식별 정보가 없어 추가할 수 없습니다.');
+      return;
+    }
 
     const engList =
       data.drugInfo?.ingredientNamesEng?.filter(
@@ -68,19 +74,34 @@ export default function DrugDetailScreen({ navigation }: Props) {
       ) ?? [];
 
     const selectedDrug: SelectedDrug = {
-      drugId,
+      drugId: Number(drugId),
       itemName: data.header?.itemName ?? '이름 없음',
       entpName: data.drugInfo?.entpName ?? '제조사 없음',
       ingredientNamesEng: engList,
     };
 
-    if (sourceScreen === 'InteractionCheck') {
-      addInteractionDrug(selectedDrug);
-      navigation.navigate('InteractionCheck');
-    } else if (sourceScreen === 'Recommendation') {
-      addRecommendationDrug(selectedDrug);
-      navigation.navigate('Recommendation');
+    const proceed = () => {
+      if (sourceScreen === 'InteractionCheck') {
+        addInteractionDrug(selectedDrug);
+        navigation.navigate('InteractionCheck');
+      } else if (sourceScreen === 'Recommendation') {
+        addRecommendationDrug(selectedDrug);
+        navigation.navigate('Recommendation');
+      }
+    };
+
+    if (engList.length === 0) {
+      const message =
+        '이 약품은 등록된 성분 데이터가 없어 상호작용 비교 및 영양제 추천 분석을 할 수 없습니다. 성분 정보가 있는 약품만 목록에 추가할 수 있습니다.';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('안내', message, [{ text: '확인' }]);
+      }
+      return;
     }
+
+    proceed();
   };
 
   const fetchDetail = useCallback(async () => {
@@ -311,7 +332,12 @@ export default function DrugDetailScreen({ navigation }: Props) {
         title={data?.header?.itemName ?? '약품정보'}
         rightComponent={
           sourceScreen ? (
-            <TouchableOpacity onPress={handleAddDrug} style={styles.addDrugButton}>
+            <TouchableOpacity
+              onPress={handleAddDrug}
+              style={styles.addDrugButton}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Text style={styles.addDrugButtonText}>약 추가</Text>
             </TouchableOpacity>
           ) : undefined
