@@ -6,10 +6,7 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * Python AI 서버 /api/v1/recommendation/analyze-safe 요청 DTO (Case B)
- * <p>기저 질환과 복용 약품명·성분 목록을 AI 서버에 전달하여 안전 영양 성분 추천 요청</p>
- */
+/** Python AI POST /api/v1/recommendation/analyze-safe 요청 (Case B) */
 @Data
 @Builder
 public class AiRecommendationRequest {

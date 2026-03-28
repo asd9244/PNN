@@ -15,10 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 
-/**
- * Case B: 기복용 처방약 기반 안전 영양제 추천 API
- * <p>POST /api/recommendations/safe-nutrients — 기복용 처방약을 고려해 안전한 영양 성분을 AI(Gemini)로 추천</p>
- */
+/** Case B: POST /api/recommendations/safe-nutrients */
 @Slf4j
 @RestController
 @RequestMapping("/api/recommendations")

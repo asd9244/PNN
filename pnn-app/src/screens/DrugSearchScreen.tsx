@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -46,7 +46,7 @@ export default function DrugSearchScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <Header title="상세검색" />
 
       <KeyboardAvoidingView
@@ -89,6 +89,6 @@ export default function DrugSearchScreen({ navigation }: Props) {
       </KeyboardAvoidingView>
 
       <ActionButtons onReset={handleReset} onSubmit={handleSearch} />
-    </SafeAreaView>
+    </View>
   );
 }

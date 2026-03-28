@@ -46,6 +46,7 @@ SYSTEM_PROMPT = """당신은 사용자의 [기저 질환(병명)]과 [현재 복
 }
 """
 
+
 def _build_user_prompt(condition: str, patient_drugs: list[str]) -> str:
     """환자 기저 질환 및 복용 약 목록을 문자열로 구성해 LLM에 넘길 프롬프트 생성."""
     cond_str = condition if condition else "알려진 기저 질환 없음"
@@ -58,57 +59,88 @@ def _build_user_prompt(condition: str, patient_drugs: list[str]) -> str:
 
 위 정보를 종합적으로 고려하여, 안전하게 병용할 수 있는 영양 성분을 지정된 JSON 형식으로 추천해 주세요."""
 
+
+def _print_case_b_terminal(message: str) -> None:
+    """uvicorn 콘솔에 확실히 보이도록 표준출력 사용 (Case A interaction과 동일)."""
+    print(message, flush=True)
+
+
+def _print_case_b_result(out: RecommendationAnalyzeResponse) -> None:
+    payload = {
+        "interaction_analysis": out.interaction_analysis,
+        "recommended_nutrients": [n.model_dump() for n in out.recommended_nutrients],
+    }
+    body = json.dumps(payload, ensure_ascii=False, indent=2)
+    _print_case_b_terminal(
+        f"[Case B] ===== 분석 결과 ({len(out.recommended_nutrients)}건) =====\n{body}"
+    )
+    logger.info("[Case B] 응답 완료 | 추천 성분 %d건", len(out.recommended_nutrients))
+
+
 @router.post("/analyze-safe", response_model=RecommendationAnalyzeResponse)
 def recommend_safe_nutrients(request: RecommendationAnalyzeRequest):
-    """
-    Case B: 질환 및 복용 약 기반 안전 영양 성분 추천.
-    """
+    """Case B: 질환 및 복용 약 기반 안전 영양 성분 추천."""
+    llm_response_text = ""
     try:
+        cond_note = "있음" if (request.condition or "").strip() else "없음"
+        _print_case_b_terminal(
+            "[Case B] ===== 분석 시작 ===== POST /api/v1/recommendation/analyze-safe | "
+            f"기저질환 입력={cond_note} | 복용약·성분 항목 {len(request.patient_drugs)}개"
+        )
+
         user_prompt = _build_user_prompt(request.condition, request.patient_drugs)
 
+        _print_case_b_terminal("[Case B] Gemini 호출 중…")
+
         llm_response_text = chat(prompt=user_prompt, system=SYSTEM_PROMPT)
-        print(f"[LLM 추천 응답]\n{llm_response_text}")
+        logger.debug(
+            "LLM 추천 원문: %s",
+            (llm_response_text[:2000] if llm_response_text else ""),
+        )
 
         cleaned_text = llm_response_text.replace("```json", "").replace("```", "").strip()
         parsed_json = json.loads(cleaned_text)
-        
+
         interaction_analysis = parsed_json.get("interaction_analysis", "")
         raw_recommendations = parsed_json.get("recommended_nutrients", [])
 
         out: list[RecommendedNutrient] = []
         for item in raw_recommendations:
-            if len(out) >= 2:  # 최대 3개 제한 보장
+            if len(out) >= 2:  # 프롬프트와 동일: 최대 2개
                 break
             name_en = item.get("name_en", "").strip()
             name_kr = item.get("name_kr", "").strip()
             reason = item.get("reason", "").strip()
             precaution = item.get("precaution", "").strip()
-            
+
             if not name_en or not reason:
                 continue
-                
+
             out.append(RecommendedNutrient(
-                name_en=name_en, 
-                name_kr=name_kr, 
-                reason=reason, 
-                precaution=precaution
+                name_en=name_en,
+                name_kr=name_kr,
+                reason=reason,
+                precaution=precaution,
             ))
 
-        return RecommendationAnalyzeResponse(
+        response = RecommendationAnalyzeResponse(
             interaction_analysis=interaction_analysis,
-            recommended_nutrients=out
+            recommended_nutrients=out,
         )
+        _print_case_b_result(response)
+        return response
 
     except json.JSONDecodeError as e:
-        logger.error(f"LLM JSON 파싱 에러: {e}\n원문: {llm_response_text[:500]}")
+        snippet = (llm_response_text[:500] if llm_response_text else "")
+        logger.error("LLM JSON 파싱 에러: %s\n원문 앞부분: %s", e, snippet)
         raise HTTPException(
             status_code=500,
             detail="AI 추천 결과를 처리하는 중 오류가 발생했습니다. (JSON 형식 오류)",
-        )
+        ) from e
     except ValueError as e:
         if "GEMINI_API_KEY" in str(e):
-            raise HTTPException(status_code=503, detail="AI 서비스 설정 오류. GEMINI_API_KEY를 확인하세요.")
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=503, detail="AI 서비스 설정 오류. GEMINI_API_KEY를 확인하세요.") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.exception("AI 추천 처리 중 예상치 못한 오류")
-        raise HTTPException(status_code=500, detail="AI 추천 처리 중 내부 서버 오류가 발생했습니다.")
+        raise HTTPException(status_code=500, detail="AI 추천 처리 중 내부 서버 오류가 발생했습니다.") from e

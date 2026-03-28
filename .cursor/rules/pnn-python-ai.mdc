@@ -6,143 +6,77 @@ alwaysApply: false
 
 # Python AI Server (PNN)
 
-<!-- 2026-03-08 갱신: app/api/v1/endpoints 구조, RAG category 필터 반영 -->
+<!-- 2026-03-28 갱신: 실제 엔드포인트·스택(Paddle/Gemini)·구버전 OCR/RAG 문구 제거 -->
 
 ## 스택
 
-| 항목          | 값                                                  |
-| ------------- | --------------------------------------------------- |
-| Framework     | FastAPI                                             |
-| Python        | 3.14.2 (로컬 확인)                                  |
-| LLM           | OpenAI GPT-4o (via openai SDK)                      |
-| OCR           | Google Cloud Vision API                             |
+| 항목 | 값 |
+|------|-----|
+| Framework | FastAPI, uvicorn |
+| Python | 3.11+ 권장 (로컬은 3.12·3.13 등 환경에 따름) |
+| Case A/B LLM | **Google Gemini** (`app/services/gemini_service.py`, `google-genai`) |
+| OCR 파이프라인 | **PaddleOCR-VL** (OpenAI 호환 로컬 서버 `:8090`) → **Ollama Qwen** 정제 (`:11434`) → 정규식 JSON (`supplement_recognition.py`) |
+| DB (배치·향후) | `psycopg`, `pgvector` — `requirements.txt` 참고 |
 
 ## 진입점
 
-Spring Boot에서만 호출되는 내부망 전용 서버. 외부 클라이언트 직접 접근 금지.
+Spring Boot에서만 호출되는 **내부망 전용** 서버. 외부 클라이언트 직접 접근 금지.
 
-## OCR 파이프라인 (`POST /api/v1/ocr/extract`)
+## API 라우팅 (`app/api/v1/api.py`)
 
-```
-이미지 수신 → Google Cloud Vision API (텍스트 추출)
-  → GPT-4o (Raw Text → 정형 JSON 변환)
-  → 정형화 결과 반환
-```
+Prefix: **`/api/v1`** (FastAPI `main`에서 마운트 여부는 `app/main.py` 확인)
 
-- Content-Type: `multipart/form-data`
-- 입력: `image` (file) 영양성분표 이미지
-- 출력:
+| 등록 라우터 | prefix | 비고 |
+|-------------|--------|------|
+| health | `/health` | 헬스 |
+| supplement_recognition | `/supplement` | `POST /extract` — 영양성분표 OCR |
+| interaction | `/interaction` | `POST /analyze` — Case A |
+| recommendation | `/recommendation` | `POST /analyze-safe` — Case B |
+| (보류) supplement 매칭 | `/supplement` | `supplement.py`의 `/match` 등은 **주석 처리** — 한국 데이터 한정 등 사유 |
+
+## 영양성분표 OCR (`POST /api/v1/supplement/extract`)
+
+- **multipart** `image` (파일 필드명은 엔드포인트 구현과 일치해야 함 — Spring은 `image` 사용).
+- 흐름 요약: PaddleOCR-VL로 텍스트 → Qwen으로 줄 단위 정제 → Python 정규식으로 `nutrients[]` 생성.
+- 응답 예시(실제 필드는 구현 기준):
 
 ```json
 {
-  "product_name": "string | null",
-  "raw_text": "string",
+  "name": "원본 파일명",
   "nutrients": [
-    {
-      "name": "string",
-      "amount": "number",
-      "unit": "string",
-      "daily_value_pct": "number"
-    }
-  ],
-  "confidence": 0.95
-}
-```
-
-## 상호작용 분석 Fallback (`POST /api/v1/interaction/analyze`)
-
-- 2026-03: RAG/knowledge_embeddings 제거. interaction_rules 1차 필터만 사용.
-- Spring에서 1차 미매칭 시 호출. 현재는 빈 결과 반환 (의사/약사 상담 권장).
-
-- 입력:
-
-```json
-{
-  "drug": {"id": "string", "name": "string", "ingredients": ["string"]},
-  "supplements": [
-    {
-      "name": "string",
-      "nutrients": [{"name": "string", "amount": "number", "unit": "string"}]
-    }
+    { "name": "Vitamin C", "amount": 500.0, "unit": "mg" }
   ]
 }
 ```
 
-- 출력:
+- 오류 시 `{"error": "..."}` 형태로 반환할 수 있음. 로컬에 Paddle/Ollama가 없으면 해당 단계에서 실패한다.
 
-```json
-{
-  "interactions": [
-    {
-      "nutrient": "string",
-      "drug_ingredient": "string",
-      "level": "SAFE | CAUTION | WARNING | SYNERGY",
-      "description": "string",
-      "action": "string",
-      "sources": ["string"]
-    }
-  ]
-}
-```
+## 상호작용 분석 Case A (`POST /api/v1/interaction/analyze`)
 
-## RAG 파이프라인 — 안전 영양 성분 추천 (`POST /api/v1/recommendation/safe-nutrients`)
+- **Gemini** 호출. Spring이 1차 룰 후 2차로 위임.
+- 요약: `drug`(id, name, ingredients), `supplements`(제품명 + nutrients).
+- 응답: `interactions[]` — 필드 예: `nutrient`, `contraindicated_drug_ingredient`, `level`(주로 `WARNING` \| `SAFE`, 성분 없음 폴백 시 `CAUTION`), `description`, `action_guide`, `sources`.
+- 영문 주성분이 비어 있으면 **폴백**으로 CAUTION 안내 반환 (정밀 분석 생략).
 
-- 입력:
+## 안전 영양 성분 추천 Case B (`POST /api/v1/recommendation/analyze-safe`)
 
-```json
-{
-  "drugs": [{"id": "string", "name": "string", "ingredients": ["string"]}],
-  "contraindicated_nutrients": [
-    {"nutrient": "string", "level": "CAUTION | WARNING", "reason": "string"}
-  ]
-}
-```
+- **Gemini** 호출. 요청 스키마: `condition`(기저 질환, 선택), `patient_drugs`(문자열 목록).
+- 응답: `interaction_analysis`, `recommended_nutrients[]` (`name_en`, `name_kr`, `reason`, `precaution`) — 상세는 `app/schemas/recommendation.py`.
 
-- 출력:
+## (보류) 제품명 매칭 `POST /api/v1/supplement/match`
 
-```json
-{
-  "warnings": [
-    {"nutrient": "string", "reason": "string", "level": "WARNING | CAUTION"}
-  ],
-  "recommendations": [
-    {
-      "nutrient": "string",
-      "reason": "string",
-      "priority": "HIGH | MEDIUM | LOW",
-      "sources": ["string"]
-    }
-  ]
-}
-```
+- `api.py`에서 라우터 **미등록**일 수 있음. 문서·클라이언트에서 사용 전 반드시 서버 코드 확인.
 
-- 금기 성분(`contraindicated_nutrients`)은 Spring이 1차 필터로 추출하여 전달
+## 패키지 구조 (요약)
 
-## 영양제 제품명 매칭 (`POST /api/v1/supplement/match`)
+- `app/main.py` — FastAPI 앱, CORS, `/api/v1` 마운트
+- `app/api/v1/api.py` — 라우터 조합
+- `app/api/v1/endpoints/` — `supplement_recognition`, `interaction`, `recommendation`, `health` (및 보류 `supplement`)
+- `app/services/gemini_service.py` — Gemini 호출
+- `app/schemas/` — Pydantic 스키마 (예: `recommendation.py`)
+- 배치·대량 임베딩 스크립트는 저장소 **`data/scripts/`** 쪽을 우선 참고 (`ai-server/scripts/` 고정 구조는 없을 수 있음)
 
-- 입력:
+## 구버전 문서와의 차이
 
-```json
-{
-  "query": "string",
-  "query_type": "TEXT | OCR"
-}
-```
-
-- 출력:
-
-```json
-{
-  "candidates": [{"name": "string", "brand": "string", "confidence": "number"}]
-}
-```
-
-## 패키지 구조
-
-- `app/` — FastAPI 애플리케이션 루트
-- `app/api/v1/` — API 버전 라우터 (api.py)
-- `app/api/v1/endpoints/` — 엔드포인트 (ocr, interaction, recommendation, supplement, health)
-- `app/core/` — 설정(config), DB 연결(database, psycopg)
-- `app/services/` — 비즈니스 로직 (OCR, 매칭 등)
-- `app/models/` — Pydantic 요청/응답 모델 (예정)
-- `scripts/` — 배치 스크립트 (embed_drug_info.py, embed_ingredient_efficacy.py) — knowledge_embeddings 적재용
+- **`/api/v1/ocr/extract`**, **`/api/v1/recommendation/safe-nutrients`** 는 **현재 사용하지 않음** — 위 경로를 기준으로 한다.
+- RAG + `knowledge_embeddings` 전용 파이프라인 설명은 **폐기·미사용**에 가깝다. 상호작용 1차는 Spring DB 룰, 2차는 본 서버 Gemini.

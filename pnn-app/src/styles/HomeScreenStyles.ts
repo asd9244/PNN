@@ -9,11 +9,12 @@ export const homeScreenStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    // SafeAreaView가 하단 시스템 UI를 피해 주고, 마지막 카드 아래 시각적 여유
+    paddingBottom: 32,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 16,
     paddingBottom: 24,
   },
   logoContainer: {

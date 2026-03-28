@@ -3,6 +3,7 @@ uvicorn
 python-multipart
 python-dotenv
 google-genai
+openai>=1.0.0
 pydantic
 pydantic-settings
 requests

@@ -2,7 +2,8 @@
 상호작용 분석 API (Case A) — Gemini 기반
 
 흐름: Spring Boot가 drug + supplements JSON 전달 → 이 모듈이 Gemini 호출 → JSON 파싱 후 반환
-등급: WARNING(위험/주의 필요), SAFE(병용 안전) 만 사용. CAUTION·SYNERGY는 출력하지 않음.
+등급: LLM이 생성하는 level은 WARNING / SAFE 만 (SYNERGY 등은 정규화 시 SAFE 등으로 처리).
+      처방약 영문 성분이 비어 있을 때 등 시스템 폴백 응답에서는 CAUTION 을 쓸 수 있음.
 후처리: WARNING은 개수 제한 없음, SAFE는 최대 2건까지만 반환.
 """
 import json
@@ -51,7 +52,7 @@ class InteractionItem(BaseModel):
     """분석된 개별 상호작용 결과 1건"""
     nutrient: str
     contraindicated_drug_ingredient: str
-    level: str  # SAFE | WARNING (API 응답은 이 둘만 사용)
+    level: str  # LLM 경로: WARNING | SAFE. 폴백: CAUTION 가능
     description: str
     action_guide: str
     sources: list[str] = Field(default_factory=list)
@@ -108,6 +109,7 @@ def _normalize_level(raw: str) -> str:
         return "WARNING"
     if lv in ("SAFE", "SYNERGY", "OK"):
         return "SAFE"
+    # 빈 문자열·알 수 없는 값은 과도한 WARNING을 피하기 위해 SAFE로 처리
     return "SAFE"
 
 
@@ -156,13 +158,43 @@ def _parse_llm_response(text: str) -> list[InteractionItem]:
 # Controller Endpoint
 # -------------------------------------------------------------------
 
+def _print_case_a_terminal(message: str) -> None:
+    """
+    uvicorn은 앱 logger.info가 콘솔에 안 붙는 경우가 많아, 개발용 터미널 확인은 print로 고정.
+    (표준출력 + 즉시 flush → 디버거/리로드 환경에서도 보임)
+    """
+    print(message, flush=True)
+
+
+def _print_case_a_result(out: InteractionAnalyzeResponse, note: str = "") -> None:
+    payload = {"interactions": [i.model_dump() for i in out.interactions]}
+    body = json.dumps(payload, ensure_ascii=False, indent=2)
+    suffix = f" {note}" if note else ""
+    _print_case_a_terminal(
+        f"[Case A] ===== 분석 결과{suffix} ({len(out.interactions)}건) =====\n{body}"
+    )
+    logger.info(
+        "[Case A] 응답 완료%s | 항목 %d건",
+        suffix,
+        len(out.interactions),
+    )
+
+
 @router.post("/analyze", response_model=InteractionAnalyzeResponse)
 def analyze_interaction(analyzeRequest: InteractionAnalyzeRequest):
     """
     처방약 + 영양제 상호작용 분석 (Case A).
-    WARNING(위험) / SAFE(안전) 만 반환. SAFE는 최대 2건.
+    정상 LLM 응답: WARNING / SAFE (SAFE는 최대 2건). 성분 없음 폴백: CAUTION.
     """
     try:
+        _print_case_a_terminal(
+            "[Case A] ===== 분석 시작 ===== "
+            f"POST /api/v1/interaction/analyze | "
+            f"약={analyzeRequest.drug.name} | id={analyzeRequest.drug.id or '-'} | "
+            f"영문성분 {len(analyzeRequest.drug.ingredients)}개 | "
+            f"영양제 제품 {len(analyzeRequest.supplements)}개"
+        )
+
         # DB에 영문 성분이 없으면 정밀 분석 불가 → 상담 권장 메시지 반환
         if not analyzeRequest.drug.ingredients:
             fallback_item = InteractionItem(
@@ -173,7 +205,11 @@ def analyze_interaction(analyzeRequest: InteractionAnalyzeRequest):
                 action_guide="이 약을 복용하는 동안에는 영양제 복용 전 반드시 의사 또는 약사와 상담하시기 바랍니다.",
                 sources=["PNN System Fallback"]
             )
-            return InteractionAnalyzeResponse(interactions=[fallback_item])
+            out = InteractionAnalyzeResponse(interactions=[fallback_item])
+            _print_case_a_result(out, note="(성분 없음 폴백)")
+            return out
+
+        _print_case_a_terminal("[Case A] Gemini 호출 중…")
 
         # 프롬프트 구성 후 Gemini 3 Flash 호출
         user_prompt = _build_user_prompt(
@@ -182,10 +218,12 @@ def analyze_interaction(analyzeRequest: InteractionAnalyzeRequest):
             analyzeRequest.supplements,
         )
         response_text = chat(prompt=user_prompt, system=SYSTEM_PROMPT)
-        print(f"[LLM 응답]\n{response_text}")
+        logger.debug("LLM 원문: %s", response_text[:2000] if response_text else "")
         interactions = _parse_llm_response(response_text)
 
-        return InteractionAnalyzeResponse(interactions=interactions)
+        out = InteractionAnalyzeResponse(interactions=interactions)
+        _print_case_a_result(out, note="(LLM)")
+        return out
 
     except ValueError as e:
         if "GEMINI_API_KEY" in str(e):

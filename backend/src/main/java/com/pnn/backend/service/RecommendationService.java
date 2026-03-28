@@ -44,43 +44,16 @@ public class RecommendationService {
      * @return 추천 영양 성분 목록 (이름, 추천 사유). AI 장애 시 빈 목록
      */
     public RecommendationResponseDto recommendSafeNutrients(RecommendationRequestDto request) {
-        // 1. DB에서 처방약 목록 조회
         List<DrugsMaster> drugs = drugsMasterRepository.findAllById(request.getDrugIds());
-        if (drugs.isEmpty()) {
-            return RecommendationResponseDto.builder()
-                    .interactionAnalysis("추천할 약품 정보가 없습니다.")
-                    .recommendedNutrients(Collections.emptyList())
-                    .build();
-        }
+        DrugIdLookupValidator.assertAllRequestedIdsExist(request.getDrugIds(), drugs);
 
-        // 2. 약품명 + 영문 성분 목록을 하나의 리스트로 구성 (AI 입력용)
         List<String> patientDrugs = drugs.stream()
-                .flatMap(d -> {
-                    List<String> ingredients = drugIngredientRepository.findByItemSeq(d.getItemSeq()).stream()
-                            .map(DrugIngredient::getIngrNameEng)
-                            .filter(eng -> eng != null && !eng.isBlank())
-                            .toList();
-
-                    // fallback: drug_ingredient 테이블에 성분이 없을 경우 drug_permit_detail 조회
-                    if (ingredients.isEmpty()) {
-                        Optional<DrugPermitDetail> permitDetail = drugPermitDetailRepository.findByItemSeq(d.getItemSeq());
-                        if (permitDetail.isPresent() && permitDetail.get().getIngrNameEng() != null && !permitDetail.get().getIngrNameEng().isBlank()) {
-                            ingredients = List.of(permitDetail.get().getIngrNameEng());
-                        } else {
-                            // 둘 다 없으면 해당 약품의 성분명을 확인할 수 없다는 예외 발생시켜 프론트에 안내
-                            throw new IllegalArgumentException("'" + d.getItemName() + "' 약품의 성분 데이터가 부족하여 분석을 진행할 수 없습니다.");
-                        }
-                    }
-
-                    return Stream.concat(
-                            Stream.of(d.getItemName()),
-                            ingredients.stream()
-                    );
-                })
+                .flatMap(d -> Stream.concat(
+                        Stream.of(d.getItemName()),
+                        resolveIngredientNamesForDrug(d).stream()))
                 .distinct()
                 .toList();
 
-        // 3. AI 서버 요청 DTO 구성 후 호출
         AiRecommendationRequest aiRequest = AiRecommendationRequest.builder()
                 .condition(request.getCondition())
                 .patientDrugs(patientDrugs)
@@ -90,7 +63,6 @@ public class RecommendationService {
             AiRecommendationResponse aiResponse = aiServerClient.recommendSafeNutrients(aiRequest);
             return mapToResponse(aiResponse);
         } catch (RestClientException e) {
-            // AI 서버 장애 시: 빈 추천 목록 반환
             log.warn("AI 서버 호출 실패: {}", e.getMessage());
             return RecommendationResponseDto.builder()
                     .interactionAnalysis("AI 서버 분석 서비스를 일시적으로 사용할 수 없습니다.")
@@ -99,24 +71,47 @@ public class RecommendationService {
         }
     }
 
-    /** AI 서버 응답을 API 응답 DTO로 변환 */
+    /**
+     * drug_ingredient 우선, 없으면 drug_permit_detail 영문 성분. 둘 다 없으면 IllegalArgumentException.
+     * Case A 상호작용 검사와 동일 규칙.
+     */
+    private List<String> resolveIngredientNamesForDrug(DrugsMaster drug) {
+        List<String> ingredients = drugIngredientRepository.findByItemSeq(drug.getItemSeq()).stream()
+                .map(DrugIngredient::getIngrNameEng)
+                .filter(eng -> eng != null && !eng.isBlank())
+                .toList();
+
+        if (ingredients.isEmpty()) {
+            Optional<DrugPermitDetail> permitDetail = drugPermitDetailRepository.findByItemSeq(drug.getItemSeq());
+            if (permitDetail.isPresent() && permitDetail.get().getIngrNameEng() != null
+                    && !permitDetail.get().getIngrNameEng().isBlank()) {
+                return List.of(permitDetail.get().getIngrNameEng());
+            }
+            throw new IllegalArgumentException(
+                    "'" + drug.getItemName() + "' 약품의 성분 데이터가 부족하여 분석을 진행할 수 없습니다.");
+        }
+        return ingredients;
+    }
+
     private RecommendationResponseDto mapToResponse(AiRecommendationResponse ai) {
         if (ai == null) {
-            return RecommendationResponseDto.builder().recommendedNutrients(List.of()).build();
+            return RecommendationResponseDto.builder()
+                    .recommendedNutrients(List.of())
+                    .build();
         }
-        
-        List<RecommendationResponseDto.RecommendedNutrient> items = List.of();
-        if (ai.getRecommendedNutrients() != null) {
-            items = ai.getRecommendedNutrients().stream()
-                    .map(n -> RecommendationResponseDto.RecommendedNutrient.builder()
-                            .nameEn(n.getNameEn())
-                            .nameKr(n.getNameKr())
-                            .reason(n.getReason())
-                            .precaution(n.getPrecaution())
-                            .build())
-                    .toList();
-        }
-        
+
+        List<RecommendationResponseDto.RecommendedNutrient> items =
+                ai.getRecommendedNutrients() == null
+                        ? List.of()
+                        : ai.getRecommendedNutrients().stream()
+                                .map(n -> RecommendationResponseDto.RecommendedNutrient.builder()
+                                        .nameEn(n.getNameEn())
+                                        .nameKr(n.getNameKr())
+                                        .reason(n.getReason())
+                                        .precaution(n.getPrecaution())
+                                        .build())
+                                .toList();
+
         return RecommendationResponseDto.builder()
                 .interactionAnalysis(ai.getInteractionAnalysis())
                 .recommendedNutrients(items)

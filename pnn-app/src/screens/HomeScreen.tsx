@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, SafeAreaView, ScrollView } from 'react-native';
+import { Text, ScrollView, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import SearchBar from '../components/SearchBar';
 import ActionCard from '../components/ActionCard';
 import { homeScreenStyles as styles } from '../styles';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useEffectiveBottomInset } from '../hooks/useEffectiveBottomInset';
+import { useEffectiveTopInset } from '../hooks/useEffectiveTopInset';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -14,6 +16,8 @@ interface Props {
 
 export default function HomeScreen({ navigation }: Props) {
   const [searchText, setSearchText] = useState('');
+  const bottomInset = useEffectiveBottomInset();
+  const topInset = useEffectiveTopInset();
 
   const handleSearch = () => {
     const trimmed = searchText.trim();
@@ -23,8 +27,12 @@ export default function HomeScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <View style={[styles.safeArea, { paddingTop: topInset, paddingBottom: bottomInset }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         
         {/* 헤더 영역 (로고 및 타이틀) */}
         <View style={styles.header}>
@@ -33,9 +41,6 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
           <Text style={styles.title}>
             가장 안전한{'\n'}나만의 영양제 찾기
-          </Text>
-          <Text style={styles.subtitle}>
-            처방약과 영양제의 충돌을 미리 예방하세요
           </Text>
         </View>
 
@@ -85,6 +90,6 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

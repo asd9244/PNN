@@ -5,61 +5,57 @@ alwaysApply: true
 
 # 시스템 아키텍처
 
-<!-- 2026-03-08 갱신: PostgreSQL 18.1, Python API /api/v1/ 경로 반영 -->
+<!-- 2026-03-28 갱신: 클라이언트 pnn-app, Python 엔드포인트 경로 정렬, 회원 DB 제거 반영 -->
 
 ## 3-Tier 구조
 
 ```
-Client (Web Browser)
-  │  HTTPS
+Client (React Native 앱 pnn-app)
+  │  HTTP(S) — Spring API만 호출
   ▼
-Spring Boot 3.5.11 (Java 17, Gradle) — 메인 백엔드
+Spring Boot 3.5.x (Java 17, Gradle) — 메인 백엔드
   │  내부망 REST API
   ▼
-Python AI Server (FastAPI)
+Python AI Server (FastAPI, ai-server/)
   │
   ▼
-PostgreSQL 18.1 (정형 + JSONB + pgvector)
+PostgreSQL (정형 데이터; JSONB·pgvector는 스키마 확장 시)
 ```
 
 ## 레이어별 역할
 
 | 레이어 | 역할 |
 |--------|------|
-| **Spring Boot** | 유일한 클라이언트 진입점. 인증/권한, 프로필 CRUD, 처방약 검색, Rule-based 1차 필터, Python 호출 오케스트레이션, 응답 조합, DB 트랜잭션 |
-| **Python AI Server** | OCR 파이프라인(Vision + GPT-4o), RAG 파이프라인(BGE-M3 임베딩 + pgvector + LLM), 영양제 매칭. Spring에서만 호출(내부망) |
-| **PostgreSQL** | 정형 데이터(의약품, 사용자, 프로필), JSONB(OCR 결과, 분석 로그), pgvector(상호작용 지식 임베딩). Spring·Python 양쪽 접근 |
+| **Spring Boot** | 유일한 클라이언트 진입점. 처방약 검색·낱알식별·상세, Case A/B Python 호출 오케스트레이션, 응답 조합, DB 트랜잭션. **회원·JWT·서버 측 사용자 인증은 범위 제외** (`docs/pnn-project-plan.md` §1.4) |
+| **Python AI Server** | OCR·Case A/B LLM(Gemini 등). Spring에서만 호출(내부망) |
+| **PostgreSQL** | 정형 데이터(의약품 마스터·DUR 등). Spring이 JPA로 주도, Python은 읽기·배치 적재 |
 
 ## 설계 원칙
 
 1. **단일 진입점**: 클라이언트는 Spring Boot API만 호출, Python 서버 URL은 외부 노출 금지
-2. **외부 라이브러리 최소 의존**: Spring은 RestClient(Raw HTTP)로 Python 통신, AI 라이브러리 의존 배제
+2. **외부 라이브러리 최소 의존**: Spring은 `RestClient`로 Python 통신, AI 라이브러리 의존 배제
 3. **관심사 분리**: 도메인/트랜잭션은 Spring, AI/ML은 Python
 4. **Graceful Degradation**: Python 장애/타임아웃 시 Spring이 1차 룰 결과 또는 캐시로 fallback
 
 ## 타임아웃 · 재시도 정책
 
-| 호출 | 타임아웃 | 비고 |
-|------|----------|------|
-| OCR (`/api/v1/ocr/extract`) | 30초 | 이미지 처리 포함 |
-| 상호작용 분석 (`/api/v1/interaction/analyze`) | 15초 | RAG + LLM |
-| 영양 성분 추천 (`/api/v1/recommendation/safe-nutrients`) | 15초 | RAG + LLM |
-| 제품명 매칭 (`/api/v1/supplement/match`) | 10초 | LLM 추론 |
+Spring → Python 실제 호출 경로(`ai.server.url`, prefix `/api/v1`) 기준:
 
-- **재시도**: 최대 2회, 지수 백오프 (1초 → 2초)
-- **fallback**: Python 응답 실패 시 Spring 1차 룰 결과 반환 또는 "일시적 오류" 안내
+| 호출 | 경로 | 타임아웃(참고) | 비고 |
+|------|------|----------------|------|
+| 영양성분표 OCR | `POST /api/v1/supplement/extract` | 30초 내외 | 이미지·LLM 처리 |
+| 상호작용 분석 (Case A) | `POST /api/v1/interaction/analyze` | 15초 내외 | RAG + LLM |
+| 안전 추천 (Case B) | `POST /api/v1/recommendation/analyze-safe` | 15초 내외 | RAG + LLM |
 
-## 인증 · 회원 관리 (Spring Security)
+- **재시도**: 최대 2회, 지수 백오프 (1초 → 2초) — 구현은 `AiServerClient` / `SupplementOcrService` 등을 따름
+- **fallback**: Python 응답 실패 시 Spring 1차 룰 결과 반환 또는 “일시적 오류” 안내
+- `POST /api/v1/supplement/match`(제품명 매칭) 등은 **라우터 미등록·보류**일 수 있음 — 배포 전 `ai-server/app/api/v1/api.py` 확인
 
-- **인증 방식**: Spring Security + JWT (Access Token / Refresh Token)
-- **회원 기능**: 회원가입, 로그인, 로그아웃, 회원정보 수정, 회원 탈퇴
-- **비밀번호**: BCryptPasswordEncoder로 해싱 저장
-- **인가 흐름**: 클라이언트 → JWT 포함 요청 → Spring Security Filter Chain → 인증/인가 처리
-- **공개 API**: 회원가입(`/api/auth/signup`), 로그인(`/api/auth/login`)은 인증 없이 접근 허용
-- **보호 API**: 그 외 모든 엔드포인트는 JWT 인증 필수
+## 인증 · 회원 (범위 제외)
+
+**회원가입·로그인·JWT·서버 측 사용자 세션은 구현하지 않는다.** DB의 `users` 등 계정·분석 로그 테이블도 제거됨(2026-03-28). 클라이언트는 로컬 상태로만 목록 유지. Spring Security는 엔드포인트 허용 위주의 최소 설정.
 
 ## 보안
 
 - Python 서버: 내부망 전용, 외부 직접 접근 차단
-- Spring ↔ Python 인증: API Key 또는 내부 JWT (추후 확정)
-- 사용자 인증: Spring Security + JWT 기반
+- Spring ↔ Python: 배포 시 API Key 등 **서비스 간** 보호 검토 (사용자 JWT와 무관)

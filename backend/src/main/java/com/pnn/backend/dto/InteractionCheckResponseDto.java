@@ -32,7 +32,10 @@ public class InteractionCheckResponseDto {
         private String nutrient;
         /** 상호작용이 있는 처방약 성분명 */
         private String contraindicatedDrugIngredient;
-        /** 상호작용 등급: SAFE(병용 안전) | CAUTION(시간 간격 필요) | WARNING(복용 중단 권장) | SYNERGY(시너지) */
+        /**
+         * 상호작용 등급. LLM 분석 결과는 주로 WARNING / SAFE.
+         * 성분 데이터 부족·AI 서버 오류 등 시스템 폴백에서는 CAUTION이 올 수 있음.
+         */
         private String level;
         /** 상호작용 설명 (한국어) */
         private String description;

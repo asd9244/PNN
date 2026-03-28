@@ -1,43 +1,56 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffectiveBottomInset } from '../hooks/useEffectiveBottomInset';
 import { Ionicons } from '@expo/vector-icons';
+import HomeFooterLink from './HomeFooterLink';
 
 interface ActionButtonsProps {
   onReset: () => void;
   onSubmit: () => void;
   submitText?: string;
+  /** 하단 고정 바 안에 「홈화면으로 이동」 포함 (기본 true) */
+  showHomeFooterLink?: boolean;
 }
 
-export default function ActionButtons({ onReset, onSubmit, submitText = "검색하기" }: ActionButtonsProps) {
-  const insets = useSafeAreaInsets();
+export default function ActionButtons({
+  onReset,
+  onSubmit,
+  submitText = '검색하기',
+  showHomeFooterLink = true,
+}: ActionButtonsProps) {
+  const bottomInset = useEffectiveBottomInset();
 
   return (
-    <View style={[styles.container, { paddingBottom: 12 + insets.bottom }]}>
-      <TouchableOpacity onPress={onReset} style={styles.resetButton}>
-        <Ionicons name="refresh" size={20} color="#4B5563" style={styles.icon} />
-        <Text style={styles.resetText}>초기화</Text>
-      </TouchableOpacity>
+    <View style={[styles.container, { paddingBottom: 12 + bottomInset }]}>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity onPress={onReset} style={styles.resetButton}>
+          <Ionicons name="refresh" size={20} color="#4B5563" style={styles.icon} />
+          <Text style={styles.resetText}>초기화</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={onSubmit} style={styles.submitButton}>
-        <View style={styles.submitContent}>
-          <Ionicons name="search" size={20} color="#FFFFFF" style={styles.icon} />
-          <Text style={styles.submitText}>{submitText}</Text>
-        </View>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={onSubmit} style={styles.submitButton}>
+          <View style={styles.submitContent}>
+            <Ionicons name="search" size={20} color="#FFFFFF" style={styles.icon} />
+            <Text style={styles.submitText}>{submitText}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+      {showHomeFooterLink ? <HomeFooterLink embedded /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6', // gray-100
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   resetButton: {
     flexDirection: 'row',

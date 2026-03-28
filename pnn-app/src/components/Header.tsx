@@ -1,22 +1,24 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import React from "react";
+import {View, Text, TouchableOpacity, StyleSheet} from "react-native";
+import {Ionicons} from "@expo/vector-icons";
+import {useNavigation} from "@react-navigation/native";
+import {useEffectiveTopInset} from "../hooks/useEffectiveTopInset";
 
 interface HeaderProps {
   title: string;
   rightComponent?: React.ReactNode;
 }
 
-export default function Header({ title, rightComponent }: HeaderProps) {
+export default function Header({title, rightComponent}: HeaderProps) {
   const navigation = useNavigation();
+  const topInset = useEffectiveTopInset();
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        onPress={() => navigation.goBack()} 
+    <View style={[styles.container, {paddingTop: topInset + 12}]}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
         style={styles.backButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
       >
         <Ionicons name="chevron-back" size={24} color="#333" />
       </TouchableOpacity>
@@ -34,13 +36,13 @@ export default function Header({ title, rightComponent }: HeaderProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 12,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6', // gray-100
+    borderBottomColor: "#F3F4F6", // gray-100
   },
   backButton: {
     padding: 8,
@@ -49,13 +51,13 @@ const styles = StyleSheet.create({
   titleWrap: {
     flex: 1,
     minWidth: 0,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginRight: 8,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900
+    fontWeight: "bold",
+    color: "#111827", // gray-900
   },
   rightContainer: {
     zIndex: 2,

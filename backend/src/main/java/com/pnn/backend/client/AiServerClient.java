@@ -51,10 +51,7 @@ public class AiServerClient {
                 .body(AiInteractionResponse.class);
     }
 
-    /**
-     * Case B: 안전 영양제 추천
-     * POST /api/v1/recommendation/analyze-safe
-     */
+    /** Case B: POST /api/v1/recommendation/analyze-safe */
     public AiRecommendationResponse recommendSafeNutrients(AiRecommendationRequest request) {
         log.debug("AI 서버 안전 추천 요청: patient_drugs 수={}", request.getPatientDrugs() != null ? request.getPatientDrugs().size() : 0);
         return restClient.post()

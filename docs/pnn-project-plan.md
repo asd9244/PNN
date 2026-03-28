@@ -21,6 +21,18 @@
 
 *(상세 문구는 추후 법률/규제 검토 후 확정)*
 
+### 1.4 범위 제외 — 사용자·로그인·보안 (2026-03-28 확정)
+
+본 프로젝트 **현재 릴리스 범위**에는 다음을 **포함하지 않는다**.
+
+- 회원가입·로그인·로그아웃, JWT/세션 기반 **사용자 인증**
+- 서버에 사용자 계정을 저장하고 세션을 유지하는 **회원 시스템**
+- Spring Security를 이용한 **엔드포인트별 인가(역할·권한)** 를 전제로 한 API 설계
+
+처방약·영양제 목록 등은 **클라이언트 로컬 상태**(예: 모바일 앱 내 스토어)로만 유지한다. DB에 `users`, `user_drugs` 등 **회원·이력용 스키마가 존재하더라도** 본 범위에서는 **비즈니스 로직에 연결하지 않는다**(향후 제품 확장 시 별도 검토).
+
+내부망 **Spring ↔ Python** 연동에 대한 API Key 등은 배포 환경에서 필요 시 별도로 정하되, **사용자 로그인과는 무관**하다.
+
 ---
 
 ## 2. 핵심 비즈니스 로직 (Core Business Logic)
@@ -142,9 +154,8 @@
 
 **Spring Boot 3.4.x (Java 17, Gradle) — 메인 백엔드**
 
-- 인증/사용자 관리
 - 처방약 검색 (낱알식별: 모양/색/각인) — dur_rules, drug_contraindication 연동
-- 프로필/이력 관리 (기복용 처방약, 영양제)
+- 기복용 처방약·영양제 목록은 **클라이언트 로컬 상태**로 유지 (서버 회원/프로필 저장 없음)
 - Case A/B: drug 정보 수집 후 Python AI 서버로 전달 (LLM 전담)
 - RestClient (Raw HTTP)로 Python AI 서버 호출
 - RestClient로 외부 API 호출 (공공데이터 등)
@@ -163,7 +174,7 @@
 
 **PostgreSQL (16+)**
 
-- 정형 테이블: 의약품 마스터, 사용자, 프로필, 상호작용 룰
+- 정형 테이블: 의약품 마스터, 상호작용 룰 등 (회원·이력 테이블은 스키마만 두고 본 범위에서는 미사용 가능)
 - JSONB 컬럼: OCR 추출 원문, 분석 결과 로그
 - pgvector 확장: 상호작용 문헌의 임베딩 벡터 저장 및 유사도 검색
 
@@ -181,9 +192,9 @@
 
 | 레이어 | 역할 | 비고 |
 | --- | --- | --- |
-| **Spring Boot** | 인증/권한, 프로필 CRUD, 처방약 검색·낱알식별(dur_rules/drug_contraindication 연동), drug 정보 수집, Python 호출 오케스트레이션, 응답 조합/가공, DB 트랜잭션 | 클라이언트의 **유일한 진입점** |
+| **Spring Boot** | 처방약 검색·낱알식별(dur_rules/drug_contraindication 연동), drug 정보 수집, Python 호출 오케스트레이션, 응답 조합/가공, DB 트랜잭션 (**회원·JWT 범위 제외**) | 클라이언트의 **유일한 진입점** |
 | **Python AI Server** | OCR 파이프라인(PaddleOCR-VL-1.5 + Gemini 3 Flash 정형화), Case A/B LLM 분석(Gemini 3 Flash), 영양제 제품명 매칭, 향후 전용 모델 | Spring에서만 호출 (내부망) |
-| **PostgreSQL** | 정형 데이터(의약품, 사용자, 프로필), JSONB(OCR 결과, 분석 로그), pgvector(상호작용/영양소 고갈 지식 임베딩) | Spring·Python 양쪽에서 접근 |
+| **PostgreSQL** | 정형 데이터(의약품 마스터 등), JSONB(OCR 결과 등), pgvector(향후 확장) | Spring·Python 양쪽에서 접근 |
 
 ### 3.3 설계 원칙
 
@@ -205,7 +216,7 @@
 | Build Tool | Gradle (Kotlin DSL, Wrapper 사용) | 유연한 빌드 설정, 멀티모듈 확장 용이. 시스템 설치 불필요 |
 | HTTP Client | RestClient (Spring 6.1+) | 외부 AI 라이브러리 의존 없이 HTTP 직접 통신 |
 | ORM | Spring Data JPA + Hibernate | PostgreSQL 매핑, JSONB 타입 지원 |
-| 인증/보안 | Spring Security + JWT | Access/Refresh Token 기반 인증, BCrypt 비밀번호 해싱 |
+| 인증/보안 | **사용자 로그인·JWT는 범위 제외** | Spring Security는 최소 설정(예: CSRF 등)만 유지하거나 개발 편의 위주. 배포 시 내부망·API Key 등은 별도 검토 |
 
 ### 4.2 AI Server (Python)
 
@@ -551,8 +562,8 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 | 항목 | 방침 |
 | --- | --- |
 | Python 서버 접근 | 내부망 전용, 외부 직접 접근 차단 |
-| Spring ↔ Python 인증 | API Key 또는 내부 JWT (추후 확정) |
-| 사용자 인증 | Spring Security + JWT (Access Token / Refresh Token) |
+| Spring ↔ Python | 필요 시 API Key 등 **서비스 간** 인증 (배포 환경에서 확정). **사용자 JWT와 무관** |
+| 사용자 인증 | **범위 제외** — 회원가입/로그인/JWT 미구현 |
 
 ### 9.3 확장성
 
@@ -601,15 +612,12 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 - [x]  추천 결과 API (`POST /api/v1/recommendations/safe-nutrients`) 연동 완료
 - [ ]  딥링크 URL 생성 로직 (프론트엔드 연동 시 최종 형식 확정)
 
-### Phase 5: 사용자/프로필
+### Phase 5: 사용자/프로필 — **범위 제외 (2026-03-28)**
 
-- [ ]  Spring Security + JWT 인증 설정 (Filter Chain, Access/Refresh Token)
-- [ ]  회원가입 API (`/api/auth/signup`) — BCrypt 비밀번호 해싱
-- [ ]  로그인 API (`/api/auth/login`) — JWT 발급
-- [ ]  로그아웃 / 토큰 갱신 API
-- [ ]  회원정보 수정 / 회원 탈퇴 API
-- [ ]  기복용 처방약/영양제 프로필 CRUD
-- [ ]  분석 이력 조회
+다음은 **구현하지 않기로 확정**하였다. 과거 로드맵 항목은 참고용으로만 남긴다.
+
+- Spring Security + JWT, 회원가입/로그인/토큰 갱신 API
+- 서버 측 기복용 약·영양제 프로필 CRUD, 분석 이력 영구 저장
 
 ### Phase 6: 프론트엔드 (추후 결정)
 
@@ -678,8 +686,8 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 | # | 항목 | 현재 상태 | 결정 시점 |
 | --- | --- | --- | --- |
 | 1 | 프론트엔드 기술 스택 | 미정 | Phase 5 전 |
-| 2 | 사용자 인증 방식 | Spring Security + JWT 확정 | 확정 |
-| 3 | Spring ↔ Python 인증 (API Key vs JWT) | 미정 | Phase 1 |
+| 2 | 사용자 인증 | **범위 제외** (로그인·JWT 미구현) | 2026-03-28 확정 |
+| 3 | Spring ↔ Python 서비스 간 인증 | API Key 등 (배포 시) | 배포 전 |
 | 4 | Python 프레임워크 (FastAPI vs Flask) | FastAPI 추천, 미확정 | Phase 1 |
 | 5 | 임베딩 모델/차원 (small vs large) | 미정 | Phase 1 |
 | 6 | 면책/규제 문구 상세 | 추후 | 서비스 출시 전 |
@@ -739,4 +747,4 @@ users ─┬─ user_drugs ── item_seq → drugs_master
 
 ---
 
-*마지막 수정: 2026-03-17 (백엔드/AI 핵심 엔진인 Case A, Case B 파이프라인 개발 완료 및 프론트 진입 선언)*
+*마지막 수정: 2026-03-28 (사용자·로그인·JWT 등 인증 기능 범위 제외 확정 반영)*

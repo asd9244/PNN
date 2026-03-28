@@ -7,5 +7,4 @@ export { drugSearchScreenStyles } from './DrugSearchScreenStyles';
 export { recommendationResultScreenStyles } from './RecommendationResultScreenStyles';
 export { productSearchLinksScreenStyles } from './ProductSearchLinksScreenStyles';
 export { interactionResultScreenStyles } from './InteractionResultScreenStyles';
-export { interactionAddDrugScreenStyles } from './InteractionAddDrugScreenStyles';
 export { inputScreenStyles } from './InputScreenStyles';

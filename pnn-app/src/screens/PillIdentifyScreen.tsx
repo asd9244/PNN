@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -18,6 +17,8 @@ import Header from '../components/Header';
 import SearchBar from '../components/SearchBar';
 import ActionButtons from '../components/ActionButtons';
 import { pillIdentifyScreenStyles as styles } from '../styles';
+import { DRUG_FORM_ICONS } from '../../assets/drugFormIcons';
+import { SHAPE_ICONS } from '../../assets/shapeIcons';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PillIdentify'>;
 type PillIdentifyRouteProp = RouteProp<RootStackParamList, 'PillIdentify'>;
@@ -29,12 +30,8 @@ const shapes = ['원형', '타원형', '반원형', '삼각형', '사각형', '�
 const colors = ['하양', '노랑', '주황', '분홍', '빨강', '갈색', '연두', '초록', '청록', '파랑', '남색', '자주', '보라', '회색', '검정', '투명'];
 const forms = ['정제', '경질캡슐', '연질캡슐', '기타'];
 
-// 제형별 아이콘 (drug_icons)
-const formIcons: Record<string, ReturnType<typeof require>> = {
-  정제: require('../../assets/drug_icons/Tablet.png'),
-  경질캡슐: require('../../assets/drug_icons/HardCapsule.png'),
-  연질캡슐: require('../../assets/drug_icons/SoftCapsule.png'),
-};
+const formIcons = DRUG_FORM_ICONS;
+const shapeIcons = SHAPE_ICONS;
 
 // 색상 이름에 따른 헥스 코드 맵핑 헬퍼 함수
 function getColorHex(colorName: string) {
@@ -133,7 +130,7 @@ export default function PillIdentifyScreen({ navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <Header title="식별검색" />
 
       <KeyboardAvoidingView 
@@ -169,7 +166,7 @@ export default function PillIdentifyScreen({ navigation }: Props) {
           {/* 2. 모양 영역 */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>모양 <Text style={styles.selectionNote}>(1개 선택)</Text></Text>
-            {renderSelectionGrid(shapes, selectedShape, setSelectedShape)}
+            {renderSelectionGrid(shapes, selectedShape, setSelectedShape, shapeIcons)}
           </View>
 
           {/* 3. 색상 영역 */}
@@ -190,6 +187,6 @@ export default function PillIdentifyScreen({ navigation }: Props) {
 
       {/* 하단 고정 액션 버튼 */}
       <ActionButtons onReset={handleReset} onSubmit={handleSearch} />
-    </SafeAreaView>
+    </View>
   );
 }

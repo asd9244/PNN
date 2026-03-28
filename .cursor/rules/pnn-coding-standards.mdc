@@ -5,6 +5,8 @@ alwaysApply: true
 
 # 코딩 표준 (PNN)
 
+<!-- 2026-03-28 갱신: pnn-app 반영, 회원 범위 제외 확정 -->
+
 ## 응답 언어 · 설명 수준
 
 - AI 응답은 **항상 한국어**로 작성
@@ -15,35 +17,37 @@ alwaysApply: true
 ```
 pnn-project/
   backend/       # Spring Boot (Java 17, Gradle Wrapper)
-  ai-server/     # Python AI Server (FastAPI 추천)
-  frontend/      # 프론트엔드 (기술 스택 미정 — Phase 5 전까지 보류)
-  data/          # DB 마이그레이션, 시드 데이터, 공공 데이터 스크립트
-  docs/          # 프로젝트 문서, API 명세
+  ai-server/     # Python AI Server (FastAPI, uvicorn)
+  pnn-app/       # React Native(Expo) 모바일 클라이언트 — Spring API 소비
+  data/          # DDL(`data/sql/`), 적재 스크립트(`data/scripts/`), 공공 데이터 파이프라인
+  docs/          # 프로젝트 문서, 계획, devlog
 ```
 
 - 각 서브 폴더는 독립적으로 빌드·실행 가능해야 함
+- **웹 전용 `frontend/` 폴더는 없음** — UI는 `pnn-app` 기준
 
 ## 보안 규칙
 
 1. **API 키·시크릿은 환경변수로 분리** — 코드에 하드코딩 금지
-   - Spring: `application.properties` 또는 `application.yml`에서 `${ENV_VAR}` 참조
-   - Python: `.env` 파일 + `python-dotenv` 또는 OS 환경변수
+   - Spring: `application.properties`에서 `${ENV_VAR}` 참조, 민감값은 `backend/.env` + `BackendApplication` 로드 패턴
+   - Python: `.env` + `python-dotenv` 또는 OS 환경변수
 2. `.env`, `credentials.json` 등 시크릿 파일은 `.gitignore`에 반드시 포함
 3. Python 서버는 내부망 전용 — 외부 포트 노출 금지
-4. 사용자 비밀번호는 `BCryptPasswordEncoder`로 해싱 저장
-5. Spring ↔ Python 인증: API Key 또는 내부 JWT (미확정)
+4. **회원·로그인 기능은 범위 제외** — 비밀번호 해싱·JWT 등 사용자 인증 규칙은 해당 기능 도입 시에만 적용
+5. Spring ↔ Python **서비스 간** 인증(API Key 등)은 배포 환경에서 검토 (`docs/pnn-project-plan.md` 등)
 
 ## 코드 컨벤션
 
 - Java: Google Java Style 기반, 4-space indent
 - Python: PEP 8 준수, Black 포매터 권장
+- TypeScript/React Native: 프로젝트 ESLint/Prettier 설정 준수
 - 커밋 메시지: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:` 등)
-- **인라인 주석**: 어노테이션·메서드·주요 코드 라인에 요약 설명 필수 (import문 제외)
-  - Java: `코드 // 설명` 형식 (`//`)
-  - Python: `코드  # 설명` 형식 (`#`)
+- **인라인 주석**: 어노테이션·메서드·주요 코드 라인에 요약 설명 (import문 제외)
+  - Java: `코드 // 설명` (`//`)
+  - Python: `코드  # 설명` (`#`)
 - 윗줄 주석보다 코드 끝 인라인 주석 선호, 간결하게 한국어로 작성
 - 중복 설명 금지 — 같은 내용을 import와 사용처에 반복하지 않는다
 
 ## 미확정 사항 참조
 
-프론트엔드 스택, 임베딩 모델 차원, Spring↔Python 인증 방식 등 미확정 항목은 `docs/pnn-project-plan.md` 11장(미결정 사항) 참조.
+프론트 세부 스택 버전, 임베딩 모델 차원 등은 `docs/pnn-project-plan.md` 미결정 항목 참조. **사용자 인증은 범위 제외로 확정**됨.

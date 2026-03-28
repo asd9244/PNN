@@ -65,9 +65,9 @@ public class SupplementOcrService {
             }
             return response;
         } catch (Exception e) {
-            log.warn("OCR 호출 실패: {}", e.getMessage());
+            log.warn("OCR 호출 실패", e);
             return SupplementOcrResponseDto.builder()
-                    .error("OCR 처리 중 오류가 발생했습니다. " + e.getMessage())
+                    .error("OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
                     .nutrients(Collections.emptyList())
                     .build();
         }

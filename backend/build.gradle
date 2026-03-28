@@ -29,8 +29,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux' // RestClient/WebClient를 위한 reactive-streams 지원
+	// webflux 제거 후에도 RestClient 멀티파트 등에서 org.reactivestreams.Publisher 가 classpath에 필요함
+	implementation 'org.reactivestreams:reactive-streams'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8' // Swagger UI (Spring Boot 3.5 호환)
+	implementation 'io.github.cdimascio:dotenv-java:3.0.0' // backend/.env 로드 (Spring은 기본 미지원)
 
 	// QueryDSL 의존성 (Spring Boot 3.x, Jakarta EE 지원)
 	// 1. QueryDSL 핵심 라이브러리
@@ -42,9 +44,6 @@ dependencies {
 	// 3. java.lang.NoClassDefFoundError (javax.annotation.Generated) 대응
 	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
 	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
-
-	// 4. Reactive Streams 의존성 (Spring Boot 3.x 지원)
-	implementation "org.reactivestreams:reactive-streams:1.0.4"
 
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'

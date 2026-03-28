@@ -147,4 +147,14 @@ export const inputScreenStyles = StyleSheet.create({
   removeDrugButton: {
     padding: 4,
   },
+  /** Case B 기저 질환 입력 */
+  conditionTextInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 15,
+    color: '#111827',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
 });

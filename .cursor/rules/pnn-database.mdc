@@ -5,62 +5,60 @@ alwaysApply: true
 
 # Database (PNN)
 
-<!-- 2026-03-12: 기존 DB 폐기. SUPP.AI/interaction_rules → 공공데이터(dur_rules, drug_contraindication) 전환. item_seq 중심 6개 테이블 -->
+<!-- 2026-03-28 갱신: drug_price_master·DDL 07 반영, 사용자/분석 로그 테이블 제거 반영 -->
 
 ## 스택
 
 | 항목 | 값 |
 |------|-----|
-| DBMS | PostgreSQL 18.1 (로컬 확인) |
-| 접근 | Spring (JPA) + Python (psycopg) |
+| DBMS | PostgreSQL (로컬 버전은 환경에 따름) |
+| 접근 | Spring (JPA/Hibernate) + Python 배치 (`psycopg` 등) |
 
 ## 정형 테이블 (공공데이터 기반, item_seq 중심)
 
-### 핵심 테이블 6개 (2026-03-12 구축 완료)
+### 핵심 테이블 (DDL `data/sql/01` ~ `07`)
 
-| 테이블 | 소스 | 주요 필드 | 비고 |
-|--------|------|-----------|------|
-| `drugs_master` | 의약품 낱알식별.csv | item_seq(UNIQUE), item_name, drug_shape, color_front/back, print_front/back, line_front/back | 낱알식별·약 검색. item_seq가 모든 테이블 연결 키 |
-| `drug_ingredients` | 의약품 상세조회(주성분).csv | item_seq(FK), ingr_name_eng, ingr_name_kr | 주성분 정보. DUR·병용금기 매칭용 |
-| `drug_permit_detail` | 의약품 제품허가 상세정보.csv | item_seq, efficacy, dosage, caution, ingr_name_eng | 효능효과·용법용량·주의사항 (PDF 파싱) |
-| `dur_rules` | DUR유형별 성분 현황_*.csv 8종 | dur_ingr_name_eng, contraind_dur_ingr_name_eng, dur_type | 병용금기·임부금기·용량주의 등 DUR 규칙 |
-| `drug_contraindication` | 한국의약품안전관리원_병용금기약물 | ingr_name_1, ingr_name_2, contraind_reason | 성분명 기준 병용금기 (~54만건) |
-| `drug_easy_info` | e약은요정보.csv | item_seq(UNIQUE), efficacy, dosage, caution_use | 상비약 복약정보 |
+| 테이블 | 소스(요약) | 주요 필드·역할 |
+|--------|------------|----------------|
+| `drugs_master` | 의약품 낱알식별 | item_seq(UNIQUE), 모양·색·각인 등 — 낱알식별·약 검색 허브 |
+| `drug_ingredients` | 허가 상세 주성분 | item_seq(FK), ingr_name_eng/kr — DUR·병용금기 매칭 |
+| `drug_permit_detail` | 제품허가 상세 | item_seq, efficacy, dosage, caution 등 |
+| `dur_rules` | DUR 유형별 성분 CSV | dur_ingr_name_eng, contraind_dur_ingr_name_eng, dur_type |
+| `drug_contraindication` | 병용금기 약물 | ingr_name_1/2, contraind_reason |
+| `drug_easy_info` | e약은요 | item_seq(UNIQUE), 상비약 복약정보 |
+| `drug_price_master` | 건강보험심사평가원 약가마스터 | item_seq, insur_code, atc_code 등 — 가격·코드 조회 |
 
-### 애플리케이션 테이블 (Spring 관리)
+- **item_seq**가 의약품 관련 테이블 간 연결 키로 쓰인다.
 
-| 테이블 | 주요 필드 | 비고 |
-|--------|-----------|------|
-| `users` | id, email, password_hash, created_at | 사용자 계정 |
-| `user_drugs` | id, user_id, item_seq(FK→drugs_master), start_date, is_active | 기복용 처방약 |
-| `user_supplements` | id, user_id, supplement_name, nutrients(JSONB), registered_at | 기복용 영양제 (OCR 결과 JSONB) |
-| `analysis_logs` | id, user_id, case_type, request(JSONB), response(JSONB), created_at | 분석 이력 로그 |
+### 애플리케이션 전용 사용자 테이블 (제거됨)
+
+**`users`, `user_drugs`, `user_supplements`, `analysis_logs`는 제품 범위 밖 회원 기능과 함께 DB·JPA에서 제거됨 (2026-03-28).** 새로 도입 시 별도 마이그레이션·엔티티 설계로 진행.
 
 ## 성분명 정규화 (필수)
 
-- **drug_permit_detail.ingr_name_eng**: `"Glucose/Sodium Chloride"` 등 여러 성분이 `/`로 묶여 있음
-- **DUR·병용금기**: `"clarithromycin"` 등 단일 성분명
-- **매칭 전**: 슬래시(`/`)로 split 후 단일 성분 단위로 정규화 필요
-- 정규화용 컬럼/테이블 추가 후 dur_rules·drug_contraindication과 매칭
+- **drug_permit_detail.ingr_name_eng**: `"Glucose/Sodium Chloride"` 등 `/`로 묶인 복합 표기
+- **DUR·병용금기**: 단일 성분명 단위
+- **매칭 전**: 슬래시(`/`) split 후 단일 성분 단위로 정규화
+- 정규화용 컬럼/파이프라인 추가 시 `dur_rules`·`drug_contraindication`과 일관되게 매칭
 
 ## Rule-based 1차 필터 (interaction_rules 대체)
 
-- **Case A/B**: drug_ingredients.ingr_name_eng × dur_rules, drug_contraindication 매칭
-- **폐기**: SUPP.AI 기반 interaction_rules (Actinium 등 잘못된 데이터, 매칭 사각지대 1,165개)
+- **Case A/B**: `drug_ingredients.ingr_name_eng` × `dur_rules`, `drug_contraindication` 매칭
+- **폐기**: SUPP.AI 기반 `interaction_rules` (데이터 품질 이슈로 미사용)
 
 ## JSONB 사용 규칙
 
-- `user_supplements.nutrients`: OCR 정형화 결과 저장 (성분명, 함량, 단위, 일일권장량%)
-- `analysis_logs.request / response`: 분석 요청·응답 원문 보존
-- JSONB 컬럼에는 GIN 인덱스 적용 (`CREATE INDEX ... USING gin (column jsonb_path_ops)`)
-- 정형화 가능한 데이터는 반드시 정규 컬럼으로 분리 (JSONB 남용 금지)
+- **현재 스키마**는 위 정형 테이블 중심이며, 회원·분석 로그용 JSONB 컬럼은 제거됨.
+- **향후** JSONB 컬럼을 추가할 경우:
+  - 검색·필터가 필요하면 GIN 인덱스 검토 (`jsonb_path_ops` 등)
+  - 정규화 가능한 필드는 정규 컬럼으로 분리 (JSONB만으로 도메인 전체를 들추지 않기)
 
 ## 설계 원칙
 
-1. 모든 PK는 `BIGSERIAL` 사용
-2. `created_at`, `updated_at` 타임스탬프 컬럼 필수 (`TIMESTAMPTZ DEFAULT now()`)
-3. 외래키에는 인덱스 생성
-4. `drugs_master`는 공공데이터(의약품 낱알식별) 기반 — 직접 INSERT 금지, 배치 파이프라인으로 적재
-5. DDL: `data/sql/01_drugs_master.sql` ~ `06_drug_easy_info.sql`
-6. 적재 스크립트: `data/scripts/load_*.py`, `run_ddl.py` (psql 미설치 시 psycopg로 DDL 실행)
-7. Spring이 트랜잭션 주체, Python은 읽기 위주
+1. PK는 `BIGSERIAL` 권장 (기존 DDL과 일치)
+2. `created_at`, `updated_at` 등 감사 컬럼은 테이블 목적에 맞게 유지
+3. 외래키·조인에 쓰는 컬럼에는 인덱스
+4. `drugs_master` 등 공공 원천 테이블은 **앱에서 임의 INSERT 금지** — 배치 파이프라인(`data/scripts/`)으로 적재
+5. DDL 파일: `data/sql/01_drugs_master.sql` ~ `07_drug_price_master.sql`
+6. 적재 스크립트: `data/scripts/load_*.py`, `run_ddl.py` 등 (환경에 따라 `psycopg`로 DDL 실행)
+7. **트랜잭션 주체는 Spring**, Python 배치는 대량 적재·읽기

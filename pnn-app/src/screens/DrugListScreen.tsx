@@ -3,7 +3,6 @@ import axios from 'axios';
 import {
   View,
   Text,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   Image,
@@ -15,6 +14,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 
 import Header from '../components/Header';
 import LoadingErrorView from '../components/LoadingErrorView';
+import HomeFooterLink from '../components/HomeFooterLink';
 import { drugListScreenStyles as styles, commonStyles } from '../styles';
 import { searchDrugDetail, searchPillIdentifier } from '../api/drugs';
 import { getNetworkErrorMessage } from '../api/client';
@@ -175,7 +175,7 @@ export default function DrugListScreen({ navigation }: Props) {
       loadingMessage="검색 중..."
       safeAreaStyle={styles.safeArea}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
       <Header title="약품 목록" />
 
       <View style={styles.headerInfo}>
@@ -187,6 +187,7 @@ export default function DrugListScreen({ navigation }: Props) {
       {data.length === 0 ? (
         <View style={commonStyles.centerContainer}>
           <Text style={styles.emptyText}>검색 결과가 없습니다.</Text>
+          <HomeFooterLink />
         </View>
       ) : (
         <FlatList
@@ -197,14 +198,17 @@ export default function DrugListScreen({ navigation }: Props) {
           onEndReached={loadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color="#9333EA" />
-                <Text style={[styles.footerLoaderText, { marginLeft: 8 }]}>
-                  더 불러오는 중...
-                </Text>
-              </View>
-            ) : null
+            <>
+              {loadingMore ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator size="small" color="#9333EA" />
+                  <Text style={[styles.footerLoaderText, { marginLeft: 8 }]}>
+                    더 불러오는 중...
+                  </Text>
+                </View>
+              ) : null}
+              <HomeFooterLink />
+            </>
           }
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -232,7 +236,7 @@ export default function DrugListScreen({ navigation }: Props) {
           )}
         />
       )}
-      </SafeAreaView>
+      </View>
     </LoadingErrorView>
   );
 }

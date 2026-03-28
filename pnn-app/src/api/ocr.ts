@@ -103,7 +103,7 @@ export interface InteractionItem {
   drugName?: string;
   nutrient: string;
   contraindicatedDrugIngredient: string;
-  /** SAFE | WARNING */
+  /** LLM: WARNING | SAFE. 시스템 폴백: CAUTION 등 */
   level: string;
   description: string;
   actionGuide: string;
@@ -117,7 +117,7 @@ export interface InteractionCompareResponse {
 export async function compareInteractions(
   requestData: InteractionCompareRequest
 ): Promise<InteractionCompareResponse> {
-  // LLM 분석(30~90초) 대비 타임아웃 2분
+  // LLM·다약 순차 호출 대비 타임아웃 2분(백엔드 지연 포함)
   const { data } = await apiClient.post<InteractionCompareResponse>(
     '/api/interaction/check',
     requestData,
@@ -146,6 +146,7 @@ export interface RecommendationResponse {
 export async function getRecommendations(
   requestData: RecommendationRequest
 ): Promise<RecommendationResponse> {
+  // Case B LLM 추론 대비 타임아웃 2분
   const { data } = await apiClient.post<RecommendationResponse>(
     '/api/recommendations/safe-nutrients',
     requestData,

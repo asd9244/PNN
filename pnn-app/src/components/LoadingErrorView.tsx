@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   StyleProp,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { commonStyles } from '../styles';
 import Header from './Header';
+import HomeFooterLink from './HomeFooterLink';
 
 interface LoadingErrorViewProps {
   loading: boolean;
@@ -19,6 +19,8 @@ interface LoadingErrorViewProps {
   loadingMessage?: string;
   safeAreaStyle?: StyleProp<ViewStyle>;
   children: React.ReactNode;
+  /** true면 상단 인라인 Header를 렌더하지 않음 */
+  hideHeader?: boolean;
 }
 
 export default function LoadingErrorView({
@@ -29,23 +31,25 @@ export default function LoadingErrorView({
   loadingMessage = '불러오는 중...',
   safeAreaStyle,
   children,
+  hideHeader = false,
 }: LoadingErrorViewProps) {
   if (loading) {
     return (
-      <SafeAreaView style={safeAreaStyle}>
-        <Header title={headerTitle} />
+      <View style={safeAreaStyle}>
+        {!hideHeader ? <Header title={headerTitle} /> : null}
         <View style={commonStyles.centerContainer}>
           <ActivityIndicator size="large" color="#9333EA" />
           <Text style={commonStyles.loadingText}>{loadingMessage}</Text>
         </View>
-      </SafeAreaView>
+        <HomeFooterLink />
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={safeAreaStyle}>
-        <Header title={headerTitle} />
+      <View style={safeAreaStyle}>
+        {!hideHeader ? <Header title={headerTitle} /> : null}
         <View style={commonStyles.centerContainer}>
           <Text style={commonStyles.errorText}>{error}</Text>
           <TouchableOpacity
@@ -56,7 +60,8 @@ export default function LoadingErrorView({
             <Text style={commonStyles.retryButtonText}>다시 시도</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+        <HomeFooterLink />
+      </View>
     );
   }
 

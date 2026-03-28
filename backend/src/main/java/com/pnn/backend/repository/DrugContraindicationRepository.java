@@ -18,7 +18,7 @@ public interface DrugContraindicationRepository extends JpaRepository<DrugContra
     List<DrugContraindication> findByDrugIngredientAndNutrient(@Param("drugIngredient") String drugIngredient, @Param("nutrient") String nutrient);
 
     /**
-     * drug_ingredient가 ingr_name_1 또는 ingr_name_2에 포함되는 행 조회 (Case B용)
+     * 단일 성분이 ingr_name_1 또는 ingr_name_2와 일치하는 병용금기 행 조회 (약 검색·상세 UI용; Case B LLM 추천 경로에서는 미사용)
      */
     @Query("SELECT dc FROM DrugContraindication dc WHERE " +
             "LOWER(TRIM(dc.ingrName1)) = LOWER(:drugIngredient) OR " +

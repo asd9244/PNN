@@ -5,10 +5,7 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * Case B: 안전 영양제 추천 API 요청 DTO
- * <p>POST /api/recommendations/safe-nutrients — 기복용 처방약과 기저 질환을 고려한 영양 성분 추천 요청 시 사용</p>
- */
+/** Case B: POST /api/recommendations/safe-nutrients 요청 */
 @Data
 public class RecommendationRequestDto {
 

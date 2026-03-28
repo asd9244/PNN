@@ -21,7 +21,7 @@ public class AiInteractionResponse {
         private String nutrient;
         @JsonProperty("contraindicated_drug_ingredient")
         private String contraindicatedDrugIngredient;
-        /** SAFE | CAUTION | WARNING | SYNERGY */
+        /** LLM 출력은 주로 WARNING / SAFE. 폴백 응답에서는 CAUTION 등이 올 수 있음 */
         private String level;
         private String description;
         @JsonProperty("action_guide")
