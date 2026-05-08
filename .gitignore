@@ -57,10 +57,10 @@ backend/*.war
 # AI 모델 파일 (PaddleOCR, llama 등 GGUF, exe, dll) — 용량 과다
 ai-server/app/models/
 
-ai-server/__pycache__/
-ai-server/**/__pycache__/
-ai-server/*.py[cod]
-ai-server/**/*.py[cod]
+__pycache__/
+**/__pycache__/
+*.py[cod]
+**/*.py[cod]
 ai-server/.venv/
 ai-server/venv/
 ai-server/env/

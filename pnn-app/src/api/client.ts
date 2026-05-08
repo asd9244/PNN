@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// EXPO_PUBLIC_API_URL이 있으면 우선 사용 (실제 기기 테스트 시 PC IP 설정용)
-// 웹: localhost, Android 에뮬레이터: 10.0.2.2, iOS 시뮬레이터: localhost
+// EXPO_PUBLIC_API_URL이 있으면 우선 사용 — 실제 Android/iOS 기기에서는 필수(예: http://192.168.0.12:8080)
+// 미설정 시: 웹=localhost, Android 에뮬레이터=10.0.2.2, iOS 시뮬=localhost (실제 폰에서는 동작하지 않음)
 const getBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) return envUrl.replace(/\/$/, ''); // trailing slash 제거

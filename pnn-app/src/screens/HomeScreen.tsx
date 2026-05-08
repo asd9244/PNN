@@ -1,47 +1,52 @@
-import React, { useState } from 'react';
-import { Text, ScrollView, View } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import SearchBar from '../components/SearchBar';
-import ActionCard from '../components/ActionCard';
-import { homeScreenStyles as styles } from '../styles';
-import { RootStackParamList } from '../navigation/AppNavigator';
-import { useEffectiveBottomInset } from '../hooks/useEffectiveBottomInset';
-import { useEffectiveTopInset } from '../hooks/useEffectiveTopInset';
+import React, {useState} from "react";
+import {Text, ScrollView, View} from "react-native";
+import {NativeStackNavigationProp} from "@react-navigation/native-stack";
+import SearchBar from "../components/SearchBar";
+import ActionCard from "../components/ActionCard";
+import {homeScreenStyles as styles} from "../styles";
+import {RootStackParamList} from "../navigation/AppNavigator";
+import {useEffectiveBottomInset} from "../hooks/useEffectiveBottomInset";
+import {useEffectiveTopInset} from "../hooks/useEffectiveTopInset";
 
-type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+type HomeScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "Home"
+>;
 
 interface Props {
   navigation: HomeScreenNavigationProp;
 }
 
-export default function HomeScreen({ navigation }: Props) {
-  const [searchText, setSearchText] = useState('');
+export default function HomeScreen({navigation}: Props) {
+  const [searchText, setSearchText] = useState("");
   const bottomInset = useEffectiveBottomInset();
   const topInset = useEffectiveTopInset();
 
   const handleSearch = () => {
     const trimmed = searchText.trim();
     if (trimmed) {
-      navigation.navigate('DrugList', { itemName: trimmed });
+      navigation.navigate("DrugList", {itemName: trimmed});
     }
   };
 
   return (
-    <View style={[styles.safeArea, { paddingTop: topInset, paddingBottom: bottomInset }]}>
+    <View
+      style={[
+        styles.safeArea,
+        {paddingTop: topInset, paddingBottom: bottomInset},
+      ]}
+    >
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        
         {/* 헤더 영역 (로고 및 타이틀) */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>PNN</Text>
+            <Text style={styles.logoText}>PN</Text>
           </View>
-          <Text style={styles.title}>
-            가장 안전한{'\n'}나만의 영양제 찾기
-          </Text>
+          <Text style={styles.title}>가장 안전한{"\n"}나만의 영양제 찾기</Text>
         </View>
 
         {/* 메인 검색창 - 약품명으로 바로 검색 */}
@@ -64,31 +69,30 @@ export default function HomeScreen({ navigation }: Props) {
             title="상세검색"
             description="약품명, 성분명으로 자세한 정보를 검색합니다."
             iconName="search-outline"
-            onPress={() => navigation.navigate('DrugSearch')}
+            onPress={() => navigation.navigate("DrugSearch")}
           />
 
           <ActionCard
             title="식별검색"
             description="모양, 색상, 마크로 모르는 약을 찾아줍니다."
             iconName="scan-outline"
-            onPress={() => navigation.navigate('PillIdentify')}
+            onPress={() => navigation.navigate("PillIdentify")}
           />
 
           <ActionCard
-            title="약X영양제 비교"
-            description="현재 먹고 있는 처방약과 영양제가 충돌하는지 검사합니다."
+            title="약&영양제 비교"
+            description="현재 복용 중인 처방약과 영양제의 상성을 확인합니다."
             iconName="git-compare-outline"
-            onPress={() => navigation.navigate('InteractionCheck')}
+            onPress={() => navigation.navigate("InteractionCheck")}
           />
 
           <ActionCard
             title="영양제 추천"
             description="내 처방약에 맞는 안전하고 효과적인 영양제를 추천받습니다."
             iconName="medical-outline"
-            onPress={() => navigation.navigate('Recommendation')}
+            onPress={() => navigation.navigate("Recommendation")}
           />
         </View>
-
       </ScrollView>
     </View>
   );

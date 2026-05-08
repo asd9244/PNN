@@ -33,6 +33,7 @@ public class DrugDetailService {
         private final DrugIngredientRepository drugIngredientRepository;
         private final DurRuleRepository durRuleRepository;
         private final DrugContraindicationRepository drugContraindicationRepository;
+        private final PdfTextExtractService pdfTextExtractService;
 
         /**
          * 약품 고유 ID를 받아 상세 정보 통합 DTO를 반환합니다.
@@ -50,6 +51,13 @@ public class DrugDetailService {
                 // 2. item_seq를 기반으로 연관 데이터 조회
                 // 2-1. 식약처 허가 상세정보 (없으면 null 반환)
                 DrugPermitDetail permit = drugPermitDetailRepository.findByItemSeq(itemSeq).orElse(null);
+
+                // 2-1-1. efficacy/dosage/caution이 PDF URL이면 텍스트로 변환 + DB 캐시
+                if (permit != null && (pdfTextExtractService.isPdfUrl(permit.getEfficacy())
+                        || pdfTextExtractService.isPdfUrl(permit.getDosage())
+                        || pdfTextExtractService.isPdfUrl(permit.getCaution()))) {
+                        permit = pdfTextExtractService.resolveAndCache(permit);
+                }
 
                 // 2-2. e약은요 쉬운 복약정보 (없으면 null 반환)
                 DrugEasyInfo easyInfo = drugEasyInfoRepository.findByItemSeq(itemSeq).orElse(null);

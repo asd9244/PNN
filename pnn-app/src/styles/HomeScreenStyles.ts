@@ -13,6 +13,8 @@ export const homeScreenStyles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 24,
@@ -22,7 +24,7 @@ export const homeScreenStyles = StyleSheet.create({
     height: 64,
     backgroundColor: '#E9D5FF',
     borderRadius: 16,
-    marginBottom: 16,
+    marginRight: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -32,6 +34,8 @@ export const homeScreenStyles = StyleSheet.create({
     fontSize: 20,
   },
   title: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 30,
     fontWeight: '800',
     color: '#111827',

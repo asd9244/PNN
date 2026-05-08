@@ -113,9 +113,9 @@ public class DrugsMasterRepositoryImpl implements DrugsMasterRepositoryCustom {
             builder.and(drugsMaster.drugShape.eq(request.getDrugShape()));
         }
 
-        // 2. 제형 (정규화된 컬럼 기준, 정확히 일치해야 함)
+        // 2. 제형 (form_code_name: CSV 제형코드명 또는 4분류 정규화 값, 정확히 일치)
         if (StringUtils.hasText(request.getFormulation())) {
-            builder.and(drugsMaster.normalFormName.eq(request.getFormulation()));
+            builder.and(drugsMaster.formCodeName.eq(request.getFormulation()));
         }
 
         // 3. 앞/뒤 구분이 모호한 속성들은 내부적으로 OR 조건으로 묶어서(괄호 치듯) AND로 추가합니다.

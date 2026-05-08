@@ -19,7 +19,7 @@ public class PillIdentifyRequestDto {
     private String drugShape; // 알약 모양 (예: 원형, 장방형)
     private String color; // 색상 (예: 하양, 노랑) - 앞/뒤 OR 검색
     private String line; // 분할선 (예: +, -) - 앞/뒤 OR 검색
-    private String formulation; // 정규화된 제형 (예: 정제, 경질캡슐, 연질캡슐, 기타)
+    private String formulation; // drugs_master.form_code_name 과 정확 일치 (앱: 정제, 경질캡슐, 연질캡슐, 기타)
 
     // 이 클래스 내 검색 조건들이 모두 비어있는지 확인하는 편의 메서드
     public boolean isEmpty() {

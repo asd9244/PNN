@@ -125,6 +125,9 @@ def main():
     conn_str = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASS}"
     with psycopg.connect(conn_str) as conn:
         with conn.cursor() as cur:
+            # 전체를 CSV 원본으로 덮어쓰기 (재실행 시 중복 방지)
+            cur.execute("TRUNCATE TABLE drug_permit_detail RESTART IDENTITY;")
+            print("   -> 기존 테이블 초기화 완료")
             cur.executemany(INSERT_SQL, rows)
         conn.commit()
 
