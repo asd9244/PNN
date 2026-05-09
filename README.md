@@ -76,7 +76,7 @@
 #### 1. 상세 검색
 
 <div align="center">
-<img src="./assets/search_detail.gif" width="35%" />
+<img src="./assets/약품검색_상세검색.gif" width="35%" />
 </div>
 
 - 약품명, 제조사명, 성분명 조건으로 약품 검색
@@ -89,7 +89,8 @@
 #### 2. 낱알식별 검색
 
 <div align="center">
-<img src="./assets/pill_identify.gif" width="35%" />
+<img src="./assets/약품검색_낱알식별1.gif" width="35%" />
+<img src="./assets/약품검색_낱알식별2.gif" width="35%" />
 </div>
 
 - 모양·색상·제형·분할선·각인 등 다중 필터 조합 검색
@@ -102,7 +103,7 @@
 #### 3. 약품정보 / 복약정보 조회
 
 <div align="center">
-<img src="./assets/drug_info.gif" width="35%" />
+<img src="./assets/약품검색_약품정보_복약정보_조회.gif" width="35%" />
 </div>
 
 - 약품 상세 페이지에서 약학정보원 기반 약품정보 표시
@@ -114,7 +115,7 @@
 #### 4. 주요정보 / DUR 조회
 
 <div align="center">
-<img src="./assets/drug_dur.gif" width="35%" />
+<img src="./assets/약품검색_주요정보_DUR_조회.gif" width="35%" />
 </div>
 
 - 허가정보(제조사·승인일 등) 표시
@@ -128,7 +129,8 @@
 #### A-1. 약품 조회
 
 <div align="center">
-<img src="./assets/interaction_search_drug.gif" width="35%" />
+<img src="./assets/상호작용_약품조회.gif" width="35%" />
+<img src="./assets/상호작용_약품조회2.gif" width="35%" />
 </div>
 
 - 분석할 처방약을 약품 검색 또는 낱알식별로 선택
@@ -140,7 +142,7 @@
 #### A-2. 영양성분 식별
 
 <div align="center">
-<img src="./assets/interaction_ocr.gif" width="35%" />
+<img src="./assets/상호작용_영양성분 식별.gif" width="35%" />
 </div>
 
 - 영양제 영양성분표 이미지 촬영 후 서버 전송
@@ -153,7 +155,7 @@
 #### A-3. 상호작용 분석
 
 <div align="center">
-<img src="./assets/interaction_result.gif" width="35%" />
+<img src="./assets/상호작용_상호작용 분석.gif" width="35%" />
 </div>
 
 - 처방약 성분(영문)과 영양제 성분(영문)을 Gemini API에 함께 전달
@@ -168,7 +170,7 @@
 #### B-1. 약품 조회
 
 <div align="center">
-<img src="./assets/recommend_search_drug.gif" width="35%" />
+<img src="./assets/상호작용_영양제추천_약품조회.gif" width="35%" />
 </div>
 
 - 장기 복용 중인 처방약을 검색·낱알식별로 등록
@@ -179,7 +181,7 @@
 #### B-2. 기저 질환·상태 작성
 
 <div align="center">
-<img src="./assets/recommend_condition.gif" width="35%" />
+<img src="./assets/상호작용_영양제추천_기저 질환·상태 작성.gif" width="35%" />
 </div>
 
 - 사용자의 기저 질환·복용 목적·생활 습관 등 상태 정보 입력
@@ -191,7 +193,7 @@
 #### B-3. 추천 영양성분 분석
 
 <div align="center">
-<img src="./assets/recommend_analysis.gif" width="35%" />
+<img src="./assets/상호작용_영양제추천_추천 영양성분 분석.gif" width="35%" />
 </div>
 
 - 처방약 성분과 사용자 상태를 기반으로 결핍 가능성 있는 영양성분 추천
@@ -203,7 +205,8 @@
 #### B-4. 추천 제품 구매 링크
 
 <div align="center">
-<img src="./assets/recommend_purchase.gif" width="35%" />
+<img src="./assets/상호작용_영양제추천_추천 제품 구매 링크(iherb).gif" width="35%" />
+<img src="./assets/상호작용_영양제추천_추천 제품 구매 링크(쿠팡).gif" width="35%" />
 </div>
 
 - 추천 영양성분이 포함된 실제 제품 정보를 외부 구매 링크로 연결
