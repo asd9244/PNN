@@ -1,14 +1,31 @@
-fastapi
-uvicorn
-python-multipart
-python-dotenv
-google-genai
-openai>=1.0.0
-pydantic
-pydantic-settings
-requests
-# pgvector 관련 (나중에 추가 가능하지만 미리)
-psycopg[binary]
-pgvector
-tqdm
-pypdf
+# PnN ai-server 의존성 — 실제 설치 버전으로 고정 (2026-07-11, Python 3.14.2)
+
+# Web Framework
+fastapi==0.135.1
+uvicorn==0.41.0
+python-multipart==0.0.22
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-dotenv==1.2.2
+requests==2.32.5
+
+# LLM / AI
+google-genai==1.67.0     # Gemini (app/services/gemini_service.py)
+openai==2.26.0           # OpenAI 호환 API (supplement_recognition, test.py)
+ollama==0.6.1            # 로컬 임베딩/LLM (app/services/ollama_*.py)
+huggingface-hub==1.7.1   # PaddleOCR-VL GGUF 모델 다운로드 (app/models/model-download)
+
+# Database (PostgreSQL + pgvector)
+psycopg[binary]==3.3.3
+pgvector==0.4.2
+
+# Utilities
+tqdm==4.67.3
+pypdf==6.8.0             # data/scripts/extract_pdf_to_detail.py에서 사용
+
+# ------------------------------------------
+# 참고: 기존 venv에 있던 torch/torchaudio/torchvision/transformers/pandas는
+# 현재 코드 어디에서도 import되지 않아 제외함 (실험 잔재).
+# 당시 환경 전체(torch CUDA 포함)를 그대로 복원하려면:
+#   pip install -r requirements.lock.txt
+# ------------------------------------------
