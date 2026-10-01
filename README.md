@@ -29,7 +29,7 @@
 | Category | Detail (Python) |
 | --- | --- |
 | **BackEnd** | **Python, FastAPI** |
-| **Library & API** | **Google GenAI** (Gemini), **PaddleOCR-VL** (영양성분표 OCR), **Ollama** (Qwen2.5 7B, OCR 결과 정제), pydantic, psycopg, pgvector |
+| **Library & API** | **Google GenAI** (Gemini), **PaddleOCR-VL** (영양성분표 OCR), **Ollama** (Qwen2.5 7B, OCR 결과 정제), pydantic, psycopg |
 | **IDE** | **PyCharm** |
 | **Server** | **Uvicorn** (FastAPI Server) |
 | **Document** | **Swagger UI** (Built-in OpenAPI) |
