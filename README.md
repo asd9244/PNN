@@ -3,7 +3,7 @@
 ## **1. 프로젝트 개요 (Project Overview)**
 
 - 기획 배경: 처방약을 복용하는 동안 평소 섭취하던 영양제와의 상호작용을 일반 사용자가 직접 판단하기 어렵습니다. 흡수 방해, 시너지, 시간 간격 조정 등 의약학적 판단이 필요한 정보가 흩어져 있고, 일반인이 접근 가능한 공개 데이터셋(병용금기 등)도 약↔약 기준이라 약↔영양제 조합에는 사용할 수 없습니다.
-- 프로젝트 목표: 사용자가 복용 중인 처방약과 보유 영양제를 등록하면, AI가 두 조합의 상호작용을 분석해 위험도(WARNING/SAFE)와 행동 가이드를 제공합니다. 처방약은 약학정보원·심평원 CSV를 통합한 4.7만건 의약품 DB에서 낱알식별·약품명으로 검색하고, 영양제는 영양성분표를 촬영하면 OCR로 자동 등록됩니다.
+- 프로젝트 목표: 사용자가 복용 중인 처방약과 보유 영양제를 등록하면, AI가 두 조합의 상호작용을 분석해 위험도(WARNING/SAFE)와 행동 가이드를 제공합니다. 처방약은 식약처·한국의약품안전관리원·심평원 공공데이터를 통합한 의약품 4.8만 품목 DB에서 낱알식별·약품명으로 검색하고, 영양제는 영양성분표를 촬영하면 OCR로 자동 등록됩니다.
 
 <br>
 
@@ -29,7 +29,7 @@
 | Category | Detail (Python) |
 | --- | --- |
 | **BackEnd** | **Python, FastAPI** |
-| **Library & API** | **Google GenAI** (Gemini), **PaddleOCR** (영양성분표 OCR), pydantic, psycopg, pgvector |
+| **Library & API** | **Google GenAI** (Gemini), **PaddleOCR-VL** (영양성분표 OCR), **Ollama** (Qwen2.5 7B, OCR 결과 정제), pydantic, psycopg, pgvector |
 | **IDE** | **PyCharm** |
 | **Server** | **Uvicorn** (FastAPI Server) |
 | **Document** | **Swagger UI** (Built-in OpenAPI) |
@@ -61,9 +61,9 @@
 <br>
 
 - 모바일 앱이 Spring Boot 백엔드에 REST API로 요청
-- Spring Boot는 PostgreSQL의 의약품 DB(4.7만건)에서 QueryDSL BooleanBuilder로 동적 검색 처리
+- Spring Boot는 PostgreSQL의 의약품 DB(4.8만 품목)에서 QueryDSL BooleanBuilder로 동적 검색 처리
 - 영양성분표 OCR과 약↔영양제 상호작용 분석은 FastAPI AI 서버에서 처리
-  - PaddleOCR: 영양성분표 이미지 텍스트 추출
+  - PaddleOCR-VL + Qwen2.5(Ollama): 영양성분표 이미지 텍스트 추출·정제
   - Gemini API: WARNING/SAFE 등급 판단
 
 <br>
@@ -93,7 +93,7 @@
 <img src="./assets/약품검색_낱알식별2.gif" width="35%" />
 </div>
 
-- 모양·색상·제형·분할선·각인 등 다중 필터 조합 검색
+- 모양·색상·제형·각인 등 다중 필터 조합 검색
 - 각인·색상은 앞면/뒷면 양쪽 컬럼을 OR로 묶어 검색 정확도 보완
 - 입력되지 않은 조건은 동적으로 제외
 
@@ -106,7 +106,7 @@
 <img src="./assets/약품검색_약품정보_복약정보_조회.gif" width="35%" />
 </div>
 
-- 약품 상세 페이지에서 약학정보원 기반 약품정보 표시
+- 약품 상세 페이지에서 식약처 허가정보 기반 약품정보 표시
 - 복약정보 탭에서 효능·용법·부작용 등 환자용 안내 정보 조회
 
 <br>
@@ -146,8 +146,7 @@
 </div>
 
 - 영양제 영양성분표 이미지 촬영 후 서버 전송
-- PaddleOCR로 텍스트 추출 → Gemini API로 성분명·함량 JSON 정형화
-- 성분명은 영문으로 통일해 후속 LLM 분석과 일관성 확보
+- PaddleOCR-VL로 텍스트 추출 → Qwen2.5 7B(Ollama)로 성분명·함량만 정제 → 정규식으로 JSON 변환
 
 <br>
 <br>
@@ -158,7 +157,7 @@
 <img src="./assets/상호작용_상호작용 분석.gif" width="35%" />
 </div>
 
-- 처방약 성분(영문)과 영양제 성분(영문)을 Gemini API에 함께 전달
+- 처방약 성분(영문)과 영양제 성분을 Gemini API에 함께 전달
 - WARNING / SAFE 2단계 등급으로 분류, 행동 가이드 함께 반환
 - DB에 성분 데이터 없을 시 CAUTION 폴백 처리
 
