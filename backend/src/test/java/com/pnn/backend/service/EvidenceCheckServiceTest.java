@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,6 +43,8 @@ class EvidenceCheckServiceTest {
     private InteractionEvidenceService interactionEvidenceService; // 가짜 근거 찾기
     @Mock
     private AiServerClient aiServerClient; // 가짜 AI 서버
+    @Mock
+    private EvidenceReadingCacheService cacheService; // 가짜 결과 저장소 (따로 정하지 않으면 늘 비어 있음)
     @InjectMocks
     private EvidenceCheckService service;
 
@@ -267,7 +270,113 @@ class EvidenceCheckServiceTest {
         assertThat(EvidenceCheckService.quoteAppearsIn("흡수가 증가한다", IRON_CALCIUM)).isFalse();
     }
 
+    // ---- 결과 저장(캐시) ----
+
+    @Test
+    @DisplayName("[저장] 모든 짝이 저장돼 있으면 AI를 부르지 않고 저장된 결과를 그대로 쓴다")
+    void usesCacheWithoutCallingAi() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(cacheService.find(any())).thenReturn(java.util.Map.of(
+                IRON_CALCIUM + "|철분", cachedRow("CAUTION", "철분제는 흡수를 줄여요.", "2시간 이상 간격", null)));
+
+        var drug = service.check(request(1L, "철")).getDrugs().get(0);
+
+        verify(aiServerClient, never()).readEvidence(any());
+        assertThat(drug.isAiCalled()).isFalse();
+        var finding = drug.getNutrients().get(0).getFindings().get(0);
+        assertThat(finding.getKind()).isEqualTo(Kind.CAUTION);
+        assertThat(finding.getExplanation()).isEqualTo("철분제는 흡수를 줄여요.");
+        assertThat(finding.isCached()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[저장] 일부만 저장돼 있으면 저장 안 된 짝만 AI에게 보낸다")
+    void sendsOnlyMissingPairsToAi() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM),
+                nutrient("칼슘", "칼슘", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(cacheService.find(any())).thenReturn(java.util.Map.of(
+                IRON_CALCIUM + "|철분", cachedRow("CAUTION", "철분제는 흡수를 줄여요.", null, null)));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "칼슘", "CAUTION", "칼슘 함유 제제와의 병용에 의해", "칼슘제도 흡수를 줄여요.", "")));
+
+        var nutrients = service.check(request(1L, "철", "칼슘")).getDrugs().get(0).getNutrients();
+
+        ArgumentCaptor<AiEvidenceReadRequest> sent = ArgumentCaptor.forClass(AiEvidenceReadRequest.class);
+        verify(aiServerClient).readEvidence(sent.capture());
+        assertThat(sent.getValue().getItems().get(0).getNutrients()).containsExactly("칼슘"); // 철분은 다시 묻지 않음
+        assertThat(nutrients.get(0).getFindings().get(0).isCached()).isTrue();
+        assertThat(nutrients.get(1).getFindings().get(0).isCached()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[저장] 통과한 답은 저장하고, 인용이 틀린 답은 저장하지 않는다 (다음에 다시 읽게)")
+    void savesOnlyVerifiedAnswers() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM),
+                nutrient("칼슘", "칼슘", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "철분", "CAUTION", "흡수가 저하될 수 있으므로", "철분제는 흡수를 줄여요.", "2시간 이상 간격"),
+                result(1, "칼슘", "CAUTION", "칼슘은 이 약과 같이 먹으면 안 된다", "칼슘제도 흡수를 줄여요.", "")));
+
+        service.check(request(1L, "철", "칼슘"));
+
+        verify(cacheService).save(eq(IRON_CALCIUM), eq("철분"), eq("CAUTION"), eq("철분제는 흡수를 줄여요."), eq("2시간 이상 간격"), isNull());
+        verify(cacheService, never()).save(any(), eq("칼슘"), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("[저장] 규칙으로 '원문을 확인하세요' 처리된 답은 안내 문구와 함께 저장한다")
+    void savesRuleRejectedAnswerWithNote() {
+        String sentence = "5) 액제형 제산제와 상호작용이 관찰되지 않았다. 수산화마그네슘 함유 제산제와 이 약을 동시에 병용 투여한 경우 혈중농도가 6 % 감소하였다.";
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("마그네슘", "마그네슘", InteractionEvidenceResponseDto.Status.FOUND, sentence));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "마그네슘", "CAUTION", "수산화마그네슘 함유 제산제와 이 약을 동시에 병용 투여한 경우", "효과가 떨어져요.", "")));
+
+        service.check(request(1L, "마그네슘"));
+
+        verify(cacheService).save(eq(sentence), eq("마그네슘"), eq("UNVERIFIED"), isNull(), isNull(), eq(EvidenceCheckService.NOTE_MIXED));
+    }
+
+    @Test
+    @DisplayName("[저장] AI 서버가 응답하지 않으면 아무것도 저장하지 않는다")
+    void savesNothingWhenAiFails() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(aiServerClient.readEvidence(any())).thenThrow(new ResourceAccessException("AI 서버 꺼짐"));
+
+        service.check(request(1L, "철"));
+
+        verify(cacheService, never()).save(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("[저장] 저장된 '원문만 + 안내' 결과도 그대로 다시 쓴다")
+    void reusesCachedSentenceOnlyWithNote() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(cacheService.find(any())).thenReturn(java.util.Map.of(
+                IRON_CALCIUM + "|철분", cachedRow("UNVERIFIED", null, null, EvidenceCheckService.NOTE_MIXED)));
+
+        var finding = service.check(request(1L, "철")).getDrugs().get(0).getNutrients().get(0).getFindings().get(0);
+
+        verify(aiServerClient, never()).readEvidence(any());
+        assertThat(finding.getKind()).isEqualTo(Kind.UNVERIFIED);
+        assertThat(finding.getNote()).isEqualTo(EvidenceCheckService.NOTE_MIXED);
+    }
+
     // ---- 테스트 준비용 ----
+
+    private static com.pnn.backend.domain.EvidenceReadingCache cachedRow(String kind, String explanation, String action, String note) {
+        var row = new com.pnn.backend.domain.EvidenceReadingCache();
+        row.setKind(kind);
+        row.setExplanation(explanation);
+        row.setAction(action);
+        row.setNote(note);
+        return row;
+    }
 
     private void givenDrugExists(Long id) {
         DrugsMaster drug = new DrugsMaster();

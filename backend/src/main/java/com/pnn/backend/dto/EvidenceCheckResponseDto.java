@@ -68,5 +68,6 @@ public class EvidenceCheckResponseDto {
         private String explanation;  // 쉬운 설명 (UNVERIFIED면 null)
         private String action;       // 할 일 (없으면 null)
         private String note;         // 원문을 확인해 달라는 안내 (예: 영향 없음 내용이 함께 있음). 없으면 null
+        private boolean cached;      // 저장된 결과를 썼는지 (true면 이번에 AI를 다시 부르지 않음)
     }
 }
