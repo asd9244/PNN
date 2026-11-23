@@ -7,9 +7,18 @@ import urllib.request
 from urllib.error import URLError
 import time
 import subprocess
-import requests
+
+from app.core.config import settings
+from app.services.ollama_llm_service import chat
 
 router = APIRouter()
+
+# 정리 단계: 같은 입력에 같은 답 / 긴 성분표도 잘리지 않게 / 답 길이 상한
+REFINE_OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 2048}
+
+# OCR 출력 상한. 정상 성분표는 1,500토큰 안쪽이지만, 같은 글자를 끝없이 반복하는 사진이 오면
+# 한도가 없을 때 OCR 서버가 몇십 분 붙잡혀 다른 요청까지 멈춘다 (이 한도면 약 14초 안에 끝남)
+OCR_MAX_TOKENS = 4096
 
 MODELS_DIR = r"C:\Users\jjong\Project_\PnN\pnn-project\ai-server\app\models"
 
@@ -79,9 +88,12 @@ async def extract_nutrients(image: UploadFile = File(...)):
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }],
-                temperature=0.0
+                temperature=0.0,
+                max_tokens=OCR_MAX_TOKENS
             )
             raw_ocr_text = ocr_response.choices[0].message.content.strip()
+            if ocr_response.choices[0].finish_reason == "length":
+                print(f"⚠️ OCR 출력이 상한({OCR_MAX_TOKENS}토큰)에 닿아 잘림 — 같은 글자 반복 가능성", flush=True)
             print("\n" + "=" * 60)
             print("[Paddle OCR 모델 분석 결과]")
             print("=" * 60)
@@ -90,9 +102,7 @@ async def extract_nutrients(image: UploadFile = File(...)):
         except Exception as e:
             return {"error": f"PaddleOCR 호출 실패: {e}"}
 
-        # 4. [STEP 2] Qwen 7B 텍스트 정제
-        json_client = OpenAI(base_url="http://127.0.0.1:11434/v1", api_key="sk-no-key-required")
-        
+        # 4. [STEP 2] 로컬 모델(gemma)로 텍스트 정제 — 줄 정리만 하면 되므로 '생각' 단계를 끔 (켜면 4배 느림)
         refine_prompt = f"""
         아래 영양 성분표 텍스트에서 '영양소 이름'과 '함량'만 찾아서 한 줄에 하나씩 나열해줘.
         % 정보나 기타 정보는 모두 제외하고 오직 '이름: 함량' 형식으로만 적어줘. 
@@ -103,20 +113,15 @@ async def extract_nutrients(image: UploadFile = File(...)):
         """
 
         try:
-            refine_response = json_client.chat.completions.create(
-                model="qwen2.5:7b",
-                messages=[{"role": "user", "content": refine_prompt}],
-                temperature=0.0,
-                max_tokens=2048
-            )
-            refined_text = refine_response.choices[0].message.content.strip()
+            refined_text = chat(prompt=refine_prompt, model=settings.OCR_REFINE_MODEL,
+                                options=REFINE_OPTIONS, think=False)
             print("\n" + "=" * 60)
-            print("[Qwen 모델 분석 결과]")
+            print(f"[정리 모델({settings.OCR_REFINE_MODEL}) 결과]")
             print("=" * 60)
             print(refined_text)
             print("=" * 60 + "\n")
         except Exception as e:
-            return {"error": f"Qwen 정제 호출 실패: {e}"}
+            return {"error": f"정리 모델 호출 실패: {e}"}
 
         # 5. [STEP 3] Python 정규식으로 JSON 변환
         nutrition_data = {}
@@ -146,15 +151,7 @@ async def extract_nutrients(image: UploadFile = File(...)):
         # FastAPI 서버가 실행되는 동안 PaddleOCR 서버는 유지하는 것이 성능에 좋음
         # 테스트 환경이나 단발성 실행 시에만 프로세스 종료
         # 여기서는 유지 전략을 사용하므로 종료 로직 생략 (필요시 lifespan에 구현)
-        
-        # Qwen 모델 VRAM 즉시 반환
-        try:
-            requests.post(
-                "http://127.0.0.1:11434/api/generate",
-                json={"model": "qwen2.5:7b", "keep_alive": 0},
-                timeout=1
-            )
-        except:
-            pass
+        # 정리 모델(gemma)은 상호작용 근거 읽기와 같이 쓰므로 메모리에서 내리지 않음 (예전 qwen은 매번 내렸음)
+        pass
 
 
