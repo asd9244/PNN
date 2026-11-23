@@ -16,6 +16,10 @@ router = APIRouter()
 # 정리 단계: 같은 입력에 같은 답 / 긴 성분표도 잘리지 않게 / 답 길이 상한
 REFINE_OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 2048}
 
+# OCR 출력 상한. 정상 성분표는 1,500토큰 안쪽이지만, 같은 글자를 끝없이 반복하는 사진이 오면
+# 한도가 없을 때 OCR 서버가 몇십 분 붙잡혀 다른 요청까지 멈춘다 (이 한도면 약 14초 안에 끝남)
+OCR_MAX_TOKENS = 4096
+
 MODELS_DIR = r"C:\Users\jjong\Project_\PnN\pnn-project\ai-server\app\models"
 
 def encode_image(image_bytes: bytes):
@@ -84,9 +88,12 @@ async def extract_nutrients(image: UploadFile = File(...)):
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }],
-                temperature=0.0
+                temperature=0.0,
+                max_tokens=OCR_MAX_TOKENS
             )
             raw_ocr_text = ocr_response.choices[0].message.content.strip()
+            if ocr_response.choices[0].finish_reason == "length":
+                print(f"⚠️ OCR 출력이 상한({OCR_MAX_TOKENS}토큰)에 닿아 잘림 — 같은 글자 반복 가능성", flush=True)
             print("\n" + "=" * 60)
             print("[Paddle OCR 모델 분석 결과]")
             print("=" * 60)
