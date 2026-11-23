@@ -98,7 +98,7 @@ public class PdfTextExtractService {
                 PDFTextStripper stripper = new PDFTextStripper();
                 String text = stripper.getText(document);
                 if (text != null && !text.isBlank()) {
-                    return text.replace("\u0000", "").trim(); // PostgreSQL NUL 바이트 제거
+                    return text.replace('\u0000', ' ').trim(); // 식약처 PDF는 띄어쓰기를 NUL로 저장하는 경우가 많아 공백으로 바꿈 (PostgreSQL은 NUL 저장 불가)
                 }
             }
             return null;
