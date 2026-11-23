@@ -204,17 +204,49 @@ class EvidenceCheckServiceTest {
     }
 
     @Test
-    @DisplayName("[고침 C] 원문에 없는 강한 표현('크게')이 설명에 있으면 원문만 보여 준다 — 비엘아토르 사례")
-    void strongWordNotInSentenceIsDropped() {
+    @DisplayName("[고침 C] 설명에 원문에 없는 강한 표현('크게')이 있으면 '주의'는 살리고 설명만 뺀다 — 로수바스타틴 사례")
+    void strongWordRemovesOnlyExplanation() {
         givenDrugExists(1L);
         givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
         when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
-                result(1, "철분", "CAUTION", "흡수가 저하될 수 있으므로", "철분제는 약 흡수를 크게 줄여요.", "")));
+                result(1, "철분", "CAUTION", "흡수가 저하될 수 있으므로", "철분제는 약 흡수를 크게 줄여요.", "2시간 이상 간격")));
 
         var iron = service.check(request(1L, "철")).getDrugs().get(0).getNutrients().get(0);
 
-        assertThat(iron.getStatus()).isEqualTo(Status.UNVERIFIED);
-        assertThat(iron.getFindings().get(0).getExplanation()).isNull();
+        assertThat(iron.getStatus()).isEqualTo(Status.CAUTION); // 맞게 읽은 '주의'는 그대로
+        assertThat(iron.getFindings().get(0).getExplanation()).isNull(); // 과장된 설명만 빠짐
+        assertThat(iron.getFindings().get(0).getAction()).isEqualTo("2시간 이상 간격"); // 문제없는 할 일은 남음
+    }
+
+    @Test
+    @DisplayName("[고침 C] 할 일에만 강한 표현이 있으면 할 일만 뺀다")
+    void strongWordRemovesOnlyAction() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "철분", "CAUTION", "흡수가 저하될 수 있으므로", "철분제는 약 흡수를 줄일 수 있어요.", "절대로 같이 먹으면 심각해요")));
+
+        var finding = service.check(request(1L, "철")).getDrugs().get(0).getNutrients().get(0).getFindings().get(0);
+
+        assertThat(finding.getKind()).isEqualTo(Kind.CAUTION);
+        assertThat(finding.getExplanation()).isEqualTo("철분제는 약 흡수를 줄일 수 있어요.");
+        assertThat(finding.getAction()).isNull();
+    }
+
+    @Test
+    @DisplayName("[순서] '영향 없음' 신호 검사를 강한 표현 검사보다 먼저 해서, '크게'가 있어도 안내 문구가 붙는다 — 비엘아토르 사례")
+    void cueCheckComesBeforeStrongWordCheck() {
+        String sentence = "11) 제산제 : 이 약과 수산화마그네슘 그리고 수산화알루미늄을 함유하는 경구용 제산제(antacid) 현탁액과 병용투여시 "
+                + "아토르바스타틴 혈장농도가 약 35 % 정도 감소하였다. 그러나 LDL-콜레스테롤의 감소에는 영향 이 없었다.";
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("마그네슘", "마그네슘", InteractionEvidenceResponseDto.Status.FOUND, sentence));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "마그네슘", "CAUTION", "아토르바스타틴 혈장농도가 약 35 % 정도 감소하였다", "혈중 농도가 크게 줄어요.", "")));
+
+        var finding = service.check(request(1L, "마그네슘")).getDrugs().get(0).getNutrients().get(0).getFindings().get(0);
+
+        assertThat(finding.getKind()).isEqualTo(Kind.UNVERIFIED);
+        assertThat(finding.getNote()).isEqualTo(EvidenceCheckService.NOTE_MIXED);
     }
 
     @Test

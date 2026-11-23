@@ -172,12 +172,7 @@ public class EvidenceCheckService {
                         evidence.getDrugName(), result.getNutrient(), result.getAction());
                 continue;
             }
-            if (!strongWordsAppearIn(text, sentence)) {
-                log.warn("원문에 없는 강한 표현 → 버림 (drug: {}, 성분: {}, 설명: {})",
-                        evidence.getDrugName(), result.getNutrient(), result.getExplanation());
-                continue;
-            }
-            boolean cueNear = noEffectCueNear(sentence, result.getNutrient());
+            boolean cueNear = noEffectCueNear(sentence, result.getNutrient()); // 종류 판단부터 확인 (강한 표현 검사보다 먼저 해야 안내 문구가 빠지지 않음)
             if (kind == Kind.CAUTION && cueNear) {
                 log.warn("'영향 없음' 신호가 가까이 있는데 주의로 읽음 → 원문만 (drug: {}, 성분: {})",
                         evidence.getDrugName(), result.getNutrient());
@@ -189,6 +184,17 @@ public class EvidenceCheckService {
                         evidence.getDrugName(), result.getNutrient());
                 readings.putIfAbsent(key, new Reading(null, NOTE_NO_EFFECT_UNCONFIRMED));
                 continue;
+            }
+            // 여기까지 통과한 종류는 믿을 수 있으니 살리고, 원문에 없는 강한 표현("크게" 등)이 든 글만 뺀다
+            if (!strongWordsAppearIn(result.getExplanation(), sentence)) {
+                log.warn("설명에 원문에 없는 강한 표현 → 설명만 뺌 (drug: {}, 성분: {}, 설명: {})",
+                        evidence.getDrugName(), result.getNutrient(), result.getExplanation());
+                result.setExplanation(null);
+            }
+            if (!strongWordsAppearIn(result.getAction(), sentence)) {
+                log.warn("할 일에 원문에 없는 강한 표현 → 할 일만 뺌 (drug: {}, 성분: {}, 할 일: {})",
+                        evidence.getDrugName(), result.getNutrient(), result.getAction());
+                result.setAction(null);
             }
             readings.putIfAbsent(key, new Reading(result, null));
         }
