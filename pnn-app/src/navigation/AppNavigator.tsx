@@ -10,7 +10,7 @@ import DrugDetailScreen from "../screens/DrugDetailScreen";
 import InteractionCheckScreen from "../screens/InteractionCheckScreen";
 import InteractionResultScreen from "../screens/InteractionResultScreen";
 import type {
-  InteractionCompareResponse,
+  EvidenceCheckResponse,
   RecommendationResponse,
 } from "../api/ocr";
 import RecommendationScreen from "../screens/RecommendationScreen";
@@ -40,7 +40,7 @@ export type RootStackParamList = {
     | undefined;
   DrugDetail: {drugId: number; sourceScreen?: SourceScreenType};
   InteractionCheck: undefined;
-  InteractionResult: {result: InteractionCompareResponse} | undefined;
+  InteractionResult: {result: EvidenceCheckResponse} | undefined;
   Recommendation: undefined;
   RecommendationResult: {result: RecommendationResponse} | undefined;
   ProductSearchLinks: {nutrients: {nameKr: string; nameEn: string}[]};

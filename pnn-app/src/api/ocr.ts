@@ -99,27 +99,51 @@ export interface InteractionCompareRequest {
   }[];
 }
 
-export interface InteractionItem {
-  drugName?: string;
-  nutrient: string;
-  contraindicatedDrugIngredient: string;
-  /** LLM: WARNING | SAFE. 시스템 폴백: CAUTION 등 */
-  level: string;
-  description: string;
-  actionGuide: string;
-  sources: string[];
+/** 문장 하나를 읽은 결과의 종류 (백엔드 EvidenceCheckResponseDto.Kind) */
+export type EvidenceKind = 'CAUTION' | 'NO_EFFECT' | 'OTHER' | 'UNVERIFIED';
+
+/** 성분별 최종 상태 (백엔드 EvidenceCheckResponseDto.Status) */
+export type EvidenceStatus =
+  | EvidenceKind
+  | 'NOT_MENTIONED' // 설명서 상호작용 항목에 언급 없음 (안전하다는 뜻이 아님)
+  | 'NOT_IN_TABLE' // 성분 대응표에 없는 성분 — 검사 대상 아님
+  | 'NO_SECTION'; // 설명서를 못 읽었거나 상호작용 항목을 못 찾음
+
+export interface EvidenceFinding {
+  kind: EvidenceKind;
+  sentence: string; // 설명서 원문 문장
+  explanation: string | null; // 쉬운 설명
+  action: string | null; // 할 일
+  note: string | null; // 원문을 확인해 달라는 안내
+  cached: boolean; // 저장된 결과를 썼는지
 }
 
-export interface InteractionCompareResponse {
-  interactions: InteractionItem[];
+export interface EvidenceNutrientResult {
+  nutrient: string; // 요청한 성분 이름 그대로
+  matchedGroup: string | null; // 대응표의 성분 묶음 이름
+  status: EvidenceStatus;
+  findings: EvidenceFinding[];
 }
 
+export interface EvidenceDrugResult {
+  drugId: number;
+  drugName: string;
+  sectionFound: boolean;
+  aiCalled: boolean;
+  nutrients: EvidenceNutrientResult[];
+}
+
+export interface EvidenceCheckResponse {
+  drugs: EvidenceDrugResult[];
+}
+
+/** 약 설명서 원문을 근거로 한 상호작용 검사 (로컬 AI가 원문만 읽음, 같은 문장은 저장된 결과를 씀) */
 export async function compareInteractions(
   requestData: InteractionCompareRequest
-): Promise<InteractionCompareResponse> {
-  // LLM·다약 순차 호출 대비 타임아웃 2분(백엔드 지연 포함)
-  const { data } = await apiClient.post<InteractionCompareResponse>(
-    '/api/interaction/check',
+): Promise<EvidenceCheckResponse> {
+  // 처음 보는 약은 AI가 설명서를 읽느라 약 하나에 수십 초 걸릴 수 있어 타임아웃 2분
+  const { data } = await apiClient.post<EvidenceCheckResponse>(
+    '/api/interaction/evidence-check',
     requestData,
     { timeout: 120000 }
   );

@@ -122,17 +122,17 @@ async def extract_nutrients(image: UploadFile = File(...)):
         nutrition_data = {}
         lines = refined_text.split('\n')
         for line in lines:
-            match = re.search(r"([^:]+?)[:\s]+([\d\.]+\s*(?:mg|mcg|µg|g|kcal|%|IU)?)", line, re.IGNORECASE)
+            match = re.search(r"([^:]+?)[:\s]+(\d[\d,]*(?:\.\d+)?\s*(?:mg|mcg|µg|μg|g|kcal|%|IU)?)", line, re.IGNORECASE)  # "1,000 mg"처럼 쉼표 있는 숫자도 한 덩어리로
             if match:
                 key = match.group(1).strip()
                 value = match.group(2).strip()
-                
-                amount_match = re.search(r"([\d\.]+)", value)
-                unit_match = re.search(r"([a-zA-Z%µ]+)", value)
-                
+
+                amount_match = re.search(r"(\d[\d,]*(?:\.\d+)?)", value)
+                unit_match = re.search(r"([a-zA-Z%µμ]+)", value)
+
                 nutrition_data[key] = {
                     "name": key,
-                    "amount": float(amount_match.group(1)) if amount_match else None,
+                    "amount": float(amount_match.group(1).replace(",", "")) if amount_match else None,  # 쉼표를 지우고 숫자로 (1,000 → 1000)
                     "unit": unit_match.group(1) if unit_match else ""
                 }
 

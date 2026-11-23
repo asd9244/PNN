@@ -112,4 +112,39 @@ export const interactionResultScreenStyles = StyleSheet.create({
     color: '#374151',
     marginTop: 4,
   },
+  findingBlock: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  findingKind: {
+    fontWeight: '600',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  sentenceBox: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  sentenceLabel: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sentenceText: {
+    color: '#374151',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  disclaimer: {
+    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 8,
+    marginBottom: 16,
+  },
 });
