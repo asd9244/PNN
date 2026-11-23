@@ -1,7 +1,7 @@
 """
-안전 영양제 추천 API (Case B) — Gemini 3 Flash 기반
+안전 영양제 추천 API (Case B) — 로컬 LLM(Ollama, 기본 gemma4:e4b)
 
-흐름: Spring Boot가 복용 약 목록(제품명·영문 성분) 전달 → Gemini 호출 → JSON 파싱 후 반환
+흐름: Spring Boot가 복용 약 목록(제품명·영문 성분) 전달 → 로컬 모델 호출 → JSON 파싱 후 반환
 역할: 기복용 약물과 상호작용 우려가 없는 보편적인 영양 성분을 보수적으로 추천
 """
 import json
@@ -14,10 +14,13 @@ from app.schemas.recommendation import (
     RecommendationAnalyzeResponse,
     RecommendedNutrient,
 )
-from app.services.gemini_service import chat
+from app.core.config import settings
+from app.services.ollama_llm_service import chat
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+LLM_OPTIONS = {"temperature": 0, "num_ctx": 8192}  # 같은 입력에 같은 답 / 기본 대화 길이(짧음)로는 긴 답이 잘림
 
 # -------------------------------------------------------------------
 # 프롬프트 (기저 질환 + 약물 기반 안전 영양제 추천)
@@ -90,9 +93,10 @@ def recommend_safe_nutrients(request: RecommendationAnalyzeRequest):
 
         user_prompt = _build_user_prompt(request.condition, request.patient_drugs)
 
-        _print_case_b_terminal("[Case B] Gemini 호출 중…")
+        _print_case_b_terminal(f"[Case B] {settings.RECOMMENDATION_MODEL} 호출 중…")
 
-        llm_response_text = chat(prompt=user_prompt, system=SYSTEM_PROMPT)
+        llm_response_text = chat(prompt=user_prompt, model=settings.RECOMMENDATION_MODEL, system=SYSTEM_PROMPT,
+                                 options=LLM_OPTIONS, format="json")
         logger.debug(
             "LLM 추천 원문: %s",
             (llm_response_text[:2000] if llm_response_text else ""),
@@ -137,10 +141,6 @@ def recommend_safe_nutrients(request: RecommendationAnalyzeRequest):
             status_code=500,
             detail="AI 추천 결과를 처리하는 중 오류가 발생했습니다. (JSON 형식 오류)",
         ) from e
-    except ValueError as e:
-        if "GEMINI_API_KEY" in str(e):
-            raise HTTPException(status_code=503, detail="AI 서비스 설정 오류. GEMINI_API_KEY를 확인하세요.") from e
-        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.exception("AI 추천 처리 중 예상치 못한 오류")
         raise HTTPException(status_code=500, detail="AI 추천 처리 중 내부 서버 오류가 발생했습니다.") from e
