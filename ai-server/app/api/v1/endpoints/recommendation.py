@@ -50,7 +50,7 @@ SYSTEM_PROMPT = """당신은 사용자의 [기저 질환(병명)]과 [현재 복
 """
 
 
-def _build_user_prompt(condition: str, patient_drugs: list[str]) -> str:
+def _build_user_prompt(condition: str | None, patient_drugs: list[str]) -> str:
     """환자 기저 질환 및 복용 약 목록을 문자열로 구성해 LLM에 넘길 프롬프트 생성."""
     cond_str = condition if condition else "알려진 기저 질환 없음"
     drugs_str = ", ".join(patient_drugs) if patient_drugs else "없음"
