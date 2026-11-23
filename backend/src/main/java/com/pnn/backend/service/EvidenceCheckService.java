@@ -3,6 +3,7 @@ package com.pnn.backend.service;
 import com.pnn.backend.client.AiServerClient;
 import com.pnn.backend.client.dto.AiEvidenceReadRequest;
 import com.pnn.backend.client.dto.AiEvidenceReadResponse;
+import com.pnn.backend.domain.EvidenceReadingCache;
 import com.pnn.backend.dto.EvidenceCheckResponseDto;
 import com.pnn.backend.dto.EvidenceCheckResponseDto.DrugResult;
 import com.pnn.backend.dto.EvidenceCheckResponseDto.Finding;
@@ -52,13 +53,14 @@ public class EvidenceCheckService {
     static final String NOTE_MIXED = "이 문장에는 영향이 없었다는 내용도 함께 있습니다. 원문을 확인하세요.";
     static final String NOTE_NO_EFFECT_UNCONFIRMED = "AI가 '영향 없음'으로 읽었지만 원문에서 근거를 확인하지 못했습니다. 원문을 확인하세요.";
 
-    /** AI가 읽은 결과(통과했을 때만) 또는 원문을 확인하라는 안내 */
-    private record Reading(AiEvidenceReadResponse.Result result, String note) {
+    /** AI가 읽은 결과(통과했을 때만) 또는 원문을 확인하라는 안내. cached: 저장소에서 꺼낸 결과인지 */
+    private record Reading(AiEvidenceReadResponse.Result result, String note, boolean cached) {
     }
 
     private final DrugsMasterRepository drugsMasterRepository;
     private final InteractionEvidenceService interactionEvidenceService;
     private final AiServerClient aiServerClient;
+    private final EvidenceReadingCacheService cacheService;
 
     public EvidenceCheckResponseDto check(InteractionCheckRequestDto request) {
         List<Long> drugIds = request.getDrugIds() == null ? List.of() : request.getDrugIds().stream().distinct().toList();
@@ -76,13 +78,16 @@ public class EvidenceCheckService {
         for (Long drugId : drugIds) {
             InteractionEvidenceResponseDto evidence = interactionEvidenceService.findEvidence(drugId, nutrientNames);
             Map<String, Integer> sentenceIds = numberSentences(evidence); // 같은 문장은 번호 하나
-            Map<String, Reading> readings = Map.of();
-            boolean aiCalled = !sentenceIds.isEmpty();
+            Map<String, Reading> readings = new HashMap<>(fromCache(evidence, sentenceIds)); // 저장된 짝은 바로 사용
+            Set<String> missing = missingPairs(evidence, sentenceIds, readings.keySet());
+            boolean aiCalled = !missing.isEmpty(); // 모든 짝이 저장돼 있으면 AI를 부르지 않음
             if (aiCalled) {
                 if (aiCalledBefore) {
                     sleepBetweenAiCalls();
                 }
-                readings = readAndVerify(evidence, sentenceIds);
+                Map<String, Reading> fresh = readAndVerify(evidence, sentenceIds, missing);
+                saveToCache(sentenceIds, fresh);
+                readings.putAll(fresh);
                 aiCalledBefore = true;
             }
             results.add(toDrugResult(evidence, sentenceIds, readings, aiCalled));
@@ -119,13 +124,82 @@ public class EvidenceCheckService {
         return ids;
     }
 
-    /** AI에게 문장들을 한 번에 읽히고, 원문과 맞는 결과만 남긴다. 키: "문장번호|성분묶음" */
-    private Map<String, Reading> readAndVerify(InteractionEvidenceResponseDto evidence, Map<String, Integer> sentenceIds) {
+    /** 저장소에 있는 (문장, 성분) 짝의 결과. 키: "문장번호|성분묶음" */
+    private Map<String, Reading> fromCache(InteractionEvidenceResponseDto evidence, Map<String, Integer> sentenceIds) {
+        Map<String, EvidenceReadingCache> rows = cacheService.find(sentenceIds.keySet());
+        Map<String, Reading> readings = new HashMap<>();
+        for (NutrientEvidence nutrient : evidence.getNutrients()) {
+            for (String sentence : nutrient.getSentences()) {
+                EvidenceReadingCache row = rows.get(sentence + "|" + nutrient.getMatchedGroup());
+                if (row != null) {
+                    readings.put(sentenceIds.get(sentence) + "|" + nutrient.getMatchedGroup(), toReading(row));
+                }
+            }
+        }
+        return readings;
+    }
+
+    private static Reading toReading(EvidenceReadingCache row) {
+        if (Kind.UNVERIFIED.name().equals(row.getKind())) {
+            return new Reading(null, row.getNote(), true); // 규칙으로 "원문을 확인하세요" 처리됐던 짝
+        }
+        AiEvidenceReadResponse.Result result = new AiEvidenceReadResponse.Result();
+        result.setKind(row.getKind());
+        result.setExplanation(row.getExplanation());
+        result.setAction(row.getAction());
+        return new Reading(result, row.getNote(), true);
+    }
+
+    /** 저장소에 없는 (문장, 성분) 짝. 키: "문장번호|성분묶음" */
+    private static Set<String> missingPairs(InteractionEvidenceResponseDto evidence, Map<String, Integer> sentenceIds,
+                                            Set<String> cachedKeys) {
+        Set<String> missing = new LinkedHashSet<>();
+        for (NutrientEvidence nutrient : evidence.getNutrients()) {
+            for (String sentence : nutrient.getSentences()) {
+                String key = sentenceIds.get(sentence) + "|" + nutrient.getMatchedGroup();
+                if (!cachedKeys.contains(key)) {
+                    missing.add(key);
+                }
+            }
+        }
+        return missing;
+    }
+
+    /**
+     * 검증까지 끝난 결과를 저장한다. readAndVerify가 돌려준 것은 "통과한 답"과 "규칙으로 원문만 처리된 답"뿐이라 그대로 저장한다.
+     * AI 꺼짐·인용 불일치·숫자 불일치는 여기 들어오지 않으므로 저장되지 않고, 다음 검사 때 다시 읽는다.
+     */
+    private void saveToCache(Map<String, Integer> sentenceIds, Map<String, Reading> fresh) {
+        Map<Integer, String> sentenceById = new HashMap<>();
+        sentenceIds.forEach((sentence, id) -> sentenceById.put(id, sentence));
+        fresh.forEach((key, reading) -> {
+            int bar = key.indexOf('|');
+            String sentence = sentenceById.get(Integer.parseInt(key.substring(0, bar)));
+            String group = key.substring(bar + 1);
+            AiEvidenceReadResponse.Result read = reading.result();
+            cacheService.save(sentence, group,
+                    read != null ? parseKind(read.getKind()).name() : Kind.UNVERIFIED.name(),
+                    read != null ? blankToNull(read.getExplanation()) : null,
+                    read != null ? blankToNull(read.getAction()) : null,
+                    reading.note());
+        });
+    }
+
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text;
+    }
+
+    /** 저장소에 없던 짝만 AI에게 한 번에 읽히고, 원문과 맞는 결과만 남긴다. 키: "문장번호|성분묶음" */
+    private Map<String, Reading> readAndVerify(InteractionEvidenceResponseDto evidence, Map<String, Integer> sentenceIds,
+                                               Set<String> missing) {
         Map<Integer, String> sentenceById = new HashMap<>();
         Map<Integer, Set<String>> groupsById = new LinkedHashMap<>();
         for (NutrientEvidence nutrient : evidence.getNutrients()) {
             for (String sentence : nutrient.getSentences()) {
                 int id = sentenceIds.get(sentence);
+                if (!missing.contains(id + "|" + nutrient.getMatchedGroup())) {
+                    continue; // 저장소에 있는 짝은 AI에게 다시 묻지 않음
+                }
                 sentenceById.put(id, sentence);
                 groupsById.computeIfAbsent(id, k -> new LinkedHashSet<>()).add(nutrient.getMatchedGroup());
             }
@@ -176,13 +250,13 @@ public class EvidenceCheckService {
             if (kind == Kind.CAUTION && cueNear) {
                 log.warn("'영향 없음' 신호가 가까이 있는데 주의로 읽음 → 원문만 (drug: {}, 성분: {})",
                         evidence.getDrugName(), result.getNutrient());
-                readings.putIfAbsent(key, new Reading(null, NOTE_MIXED));
+                readings.putIfAbsent(key, new Reading(null, NOTE_MIXED, false));
                 continue;
             }
             if (kind == Kind.NO_EFFECT && !cueNear) {
                 log.warn("'영향 없음' 신호가 없는데 영향 없음으로 읽음 → 원문만 (drug: {}, 성분: {})",
                         evidence.getDrugName(), result.getNutrient());
-                readings.putIfAbsent(key, new Reading(null, NOTE_NO_EFFECT_UNCONFIRMED));
+                readings.putIfAbsent(key, new Reading(null, NOTE_NO_EFFECT_UNCONFIRMED, false));
                 continue;
             }
             // 여기까지 통과한 종류는 믿을 수 있으니 살리고, 원문에 없는 강한 표현("크게" 등)이 든 글만 뺀다
@@ -196,7 +270,7 @@ public class EvidenceCheckService {
                         evidence.getDrugName(), result.getNutrient(), result.getAction());
                 result.setAction(null);
             }
-            readings.putIfAbsent(key, new Reading(result, null));
+            readings.putIfAbsent(key, new Reading(result, null, false));
         }
         return readings;
     }
@@ -288,6 +362,7 @@ public class EvidenceCheckService {
                         .explanation(read != null ? read.getExplanation() : null)
                         .action(read != null && read.getAction() != null && !read.getAction().isBlank() ? read.getAction() : null)
                         .note(reading != null ? reading.note() : null)
+                        .cached(reading != null && reading.cached())
                         .build());
             }
             nutrients.add(NutrientResult.builder()
