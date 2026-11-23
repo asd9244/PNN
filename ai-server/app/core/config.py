@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     DATABASE_URL: str = "postgresql://postgres:1234@localhost:5432/pnn-db"
 
+    # 설명서 근거 문장 읽기(/interaction/read-evidence)에 쓰는 로컬 모델 (Ollama)
+    EVIDENCE_MODEL: str = "gemma4:e4b"
+
     class Config:
         env_file = str(_ENV_PATH) if _ENV_PATH.exists() else ".env"
         case_sensitive = True

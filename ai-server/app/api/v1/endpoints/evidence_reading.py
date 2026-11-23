@@ -1,8 +1,8 @@
 """
-설명서 근거 문장 읽기 API (Case A, 근거 기반) — Gemini 기반
+설명서 근거 문장 읽기 API (Case A, 근거 기반) — 로컬 LLM(Ollama, 기본 gemma4:e4b)
 
 흐름: Spring이 약 설명서(식약처 주의사항)에서 찾은 원문 문장과 그 문장에 나온 영양 성분을 보냄
-      → Gemini가 문장 뜻을 읽고 성분마다 종류(CAUTION / NO_EFFECT / OTHER), 쉬운 설명, 할 일, 근거 구절을 답함
+      → 로컬 모델이 문장 뜻을 읽고 성분마다 종류(CAUTION / NO_EFFECT / OTHER), 쉬운 설명, 할 일, 근거 구절을 답함
       → Spring이 근거 구절이 원문에 실제로 있는지 대조함 (이 모듈은 대조하지 않음)
 기존 /analyze(기억으로 판단)와 달리, 주어진 문장 밖의 지식을 쓰지 않게 한다.
 """
@@ -12,12 +12,14 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.gemini_service import chat
+from app.core.config import settings
+from app.services.ollama_llm_service import chat
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-KINDS = {"CAUTION", "NO_EFFECT", "OTHER"}  # Gemini가 고를 수 있는 종류
+KINDS = {"CAUTION", "NO_EFFECT", "OTHER"}  # 모델이 고를 수 있는 종류
+LLM_OPTIONS = {"temperature": 0, "num_ctx": 8192}  # 같은 입력에 같은 답 / 기본 대화 길이(짧음)로는 긴 답이 잘림
 
 
 class EvidenceItem(BaseModel):
@@ -73,7 +75,7 @@ def _build_user_prompt(req: EvidenceReadRequest) -> str:
 
 
 def _parse(text: str) -> list[EvidenceReadResult]:
-    """Gemini 응답에서 JSON을 꺼내 결과 목록으로 변환. 형식이 틀린 항목은 버림 (Spring이 원문만 보여 줌)."""
+    """모델 응답에서 JSON을 꺼내 결과 목록으로 변환. 형식이 틀린 항목은 버림 (Spring이 원문만 보여 줌)."""
     cleaned = (text or "").replace("```json", "").replace("```", "").strip()  # 마크다운 코드블록 제거
     try:
         data = json.loads(cleaned)
@@ -103,19 +105,16 @@ def _parse(text: str) -> list[EvidenceReadResult]:
 
 @router.post("/read-evidence", response_model=EvidenceReadResponse)
 def read_evidence(req: EvidenceReadRequest):
-    """약 하나의 근거 문장들을 Gemini로 한 번에 읽는다 (약당 호출 1번)."""
+    """약 하나의 근거 문장들을 로컬 모델로 한 번에 읽는다 (약당 호출 1번)."""
     if not req.items:
         return EvidenceReadResponse()
     try:
-        print(f"[Evidence] Gemini 호출 | 약={req.drug_name} | 문장 {len(req.items)}개", flush=True)
-        text = chat(prompt=_build_user_prompt(req), system=SYSTEM_PROMPT)
+        print(f"[Evidence] {settings.EVIDENCE_MODEL} 호출 | 약={req.drug_name} | 문장 {len(req.items)}개", flush=True)
+        text = chat(prompt=_build_user_prompt(req), model=settings.EVIDENCE_MODEL, system=SYSTEM_PROMPT,
+                    options=LLM_OPTIONS, format="json")
         out = EvidenceReadResponse(results=_parse(text))
         print(f"[Evidence] 결과 {len(out.results)}건\n" + json.dumps(out.model_dump(), ensure_ascii=False, indent=2), flush=True)
         return out
-    except ValueError as e:
-        if "GEMINI_API_KEY" in str(e):
-            raise HTTPException(status_code=503, detail="AI 서비스 설정 오류. GEMINI_API_KEY를 확인하세요.")
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.exception("근거 읽기 중 오류")
         raise HTTPException(status_code=500, detail=str(e))
