@@ -1,8 +1,10 @@
 package com.pnn.backend.controller;
 
 import com.pnn.backend.dto.InteractionCheckRequestDto;
+import com.pnn.backend.dto.EvidenceCheckResponseDto;
 import com.pnn.backend.dto.InteractionCheckResponseDto;
 import com.pnn.backend.dto.InteractionEvidenceResponseDto;
+import com.pnn.backend.service.EvidenceCheckService;
 import com.pnn.backend.service.InteractionCheckService;
 import com.pnn.backend.service.InteractionEvidenceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +36,7 @@ public class InteractionController {
 
     private final InteractionCheckService interactionCheckService;
     private final InteractionEvidenceService interactionEvidenceService;
+    private final EvidenceCheckService evidenceCheckService;
 
     @Operation(summary = "상호작용 검사", description = "여러 신규 처방약과 기복용 영양제 간의 상호작용을 AI로 분석합니다.")
     @PostMapping("/check")
@@ -52,5 +55,15 @@ public class InteractionController {
             @RequestParam List<String> nutrients) { // 성분표 이름 목록 (예: 철, 칼슘, 비타민 C)
         log.info("근거 문장 찾기 API 호출 - drugId: {}, nutrients: {}", drugId, nutrients);
         return ResponseEntity.ok(interactionEvidenceService.findEvidence(drugId, nutrients));
+    }
+
+    @Operation(summary = "상호작용 검사 (설명서 근거 기반)",
+            description = "약 설명서 원문에서 찾은 문장을 근거로 검사합니다. AI는 찾은 문장을 쉬운 말로 읽기만 하며, "
+                    + "근거 문장이 없는 약은 AI를 부르지 않습니다. 요청 형식은 /check와 같습니다.")
+    @PostMapping("/evidence-check")
+    public ResponseEntity<EvidenceCheckResponseDto> checkWithEvidence(
+            @Valid @RequestBody InteractionCheckRequestDto request) {
+        log.info("근거 기반 상호작용 검사 API 호출 - drugIds: {}", request.getDrugIds());
+        return ResponseEntity.ok(evidenceCheckService.check(request));
     }
 }
