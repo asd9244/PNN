@@ -199,6 +199,7 @@ public class DrugDetailService {
                                 .efficacy(permit != null ? permit.getEfficacy() : null)
                                 .dosage(permit != null ? permit.getDosage() : null)
                                 .caution(permit != null ? permit.getCaution() : null)
+                                .interactionSection(permit != null ? InteractionSectionExtractor.extract(permit.getCaution()) : null)
                                 .storageMethod(permit != null ? permit.getStorageMethod() : null)
                                 .validityPeriod(permit != null ? permit.getValidityPeriod() : null)
                                 .packageUnit(permit != null ? permit.getPackageUnit() : null)
