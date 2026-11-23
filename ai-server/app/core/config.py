@@ -17,6 +17,8 @@ class Settings(BaseSettings):
 
     # 설명서 근거 문장 읽기(/interaction/read-evidence)에 쓰는 로컬 모델 (Ollama)
     EVIDENCE_MODEL: str = "gemma4:e4b"
+    # 안전 영양제 추천(/recommendation/analyze-safe)에 쓰는 로컬 모델 (Ollama)
+    RECOMMENDATION_MODEL: str = "gemma4:e4b"
 
     class Config:
         env_file = str(_ENV_PATH) if _ENV_PATH.exists() else ".env"

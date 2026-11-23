@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class RecommendationAnalyzeRequest(BaseModel):
     """Spring에서 전달하는 분석 요청."""
 
-    condition: str = Field(default="", description="기저 질환 또는 병명 (선택)")
+    condition: str | None = Field(default="", description="기저 질환 또는 병명 (선택). 앱에서 비워 두면 Spring이 null을 보냄 → '질환 없음'으로 처리")
     patient_drugs: list[str] = Field(..., description="복용 약: 제품명·영문 성분 등")
 
 
