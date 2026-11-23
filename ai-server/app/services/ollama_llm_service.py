@@ -14,9 +14,11 @@ elif "://" not in _ollama_host and _ollama_host:
 _client = ollama.Client(host=_ollama_host)
 
 
-def chat(prompt: str, model: str = "llama3.2", system: Optional[str] = None) -> str:
+def chat(prompt: str, model: str = "llama3.2", system: Optional[str] = None,
+         options: Optional[dict] = None, format: Optional[str] = None) -> str:
     """
     Ollama 채팅 API 호출.
+    options: 예) {"temperature": 0, "num_ctx": 8192}  format: "json"이면 JSON으로만 답하게 고정
     Returns: assistant 응답 텍스트
     """
     messages = []
@@ -27,7 +29,7 @@ def chat(prompt: str, model: str = "llama3.2", system: Optional[str] = None) -> 
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    response = _client.chat(model=model, messages=messages)
+    response = _client.chat(model=model, messages=messages, options=options, format=format or "")
     return response.get("message", {}).get("content", "").strip()
 
 def build_safe_recommendation_prompt(patient_drugs: list[str], contraindicated_nutrients: list[str]) -> tuple[str, str]:

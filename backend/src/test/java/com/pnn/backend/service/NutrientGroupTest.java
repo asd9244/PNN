@@ -55,6 +55,14 @@ class NutrientGroupTest {
     }
 
     @Test
+    @DisplayName("피 속 칼슘 수치 이야기(혈중·혈청 칼슘, 칼슘치)는 칼슘 영양제로 세지 않는다 — 베네프 설명서 문장")
+    void ignoresBloodCalciumLevel() {
+        assertThat(NutrientGroup.CALCIUM.isMentionedIn("부신피질 호르몬 - 덱사메타손 등 혈청 칼슘치가 저하할 우려가 있다.")).isFalse();
+        assertThat(NutrientGroup.CALCIUM.isMentionedIn("이약의 혈중 칼슘 저하 작용이 증강 될 가능성이 있다.")).isFalse();
+        assertThat(NutrientGroup.CALCIUM.isMentionedIn("칼슘 보충제와 병용 시 혈중 칼슘 농도가 증가할 수 있다.")).isTrue(); // 보충제 이야기가 같이 있으면 찾음
+    }
+
+    @Test
     @DisplayName("같은 문장에 진짜 영양제 표현이 있으면 찾는다")
     void findsRealSupplementNextToLookAlike() {
         assertThat(NutrientGroup.POTASSIUM.isMentionedIn("칼륨보조제, 칼륨보존이뇨제, 칼륨을 함유한 식염대용물과 병용 시")).isTrue();

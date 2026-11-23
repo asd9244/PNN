@@ -1,5 +1,7 @@
 package com.pnn.backend.client;
 
+import com.pnn.backend.client.dto.AiEvidenceReadRequest;
+import com.pnn.backend.client.dto.AiEvidenceReadResponse;
 import com.pnn.backend.client.dto.AiInteractionRequest;
 import com.pnn.backend.client.dto.AiInteractionResponse;
 import com.pnn.backend.client.dto.AiRecommendationRequest;
@@ -18,6 +20,7 @@ import java.time.Duration;
  * <p>설정: ai.server.url (기본값 http://localhost:8000)</p>
  * <p>Case A: POST /api/v1/interaction/analyze — 처방약+영양제 상호작용 분석</p>
  * <p>Case B: POST /api/v1/recommendation/analyze-safe — 안전 영양 성분 추천</p>
+ * <p>Case A(근거 기반): POST /api/v1/interaction/read-evidence — 설명서 근거 문장 읽기</p>
  */
 @Slf4j
 @Component
@@ -49,6 +52,17 @@ public class AiServerClient {
                 .body(request)
                 .retrieve()
                 .body(AiInteractionResponse.class);
+    }
+
+    /** Case A(근거 기반): 설명서 근거 문장을 AI로 읽기. POST /api/v1/interaction/read-evidence */
+    public AiEvidenceReadResponse readEvidence(AiEvidenceReadRequest request) {
+        log.debug("AI 서버 근거 읽기 요청: drug={}, 문장 수={}", request.getDrugName(),
+                request.getItems() != null ? request.getItems().size() : 0);
+        return restClient.post()
+                .uri("/api/v1/interaction/read-evidence")
+                .body(request)
+                .retrieve()
+                .body(AiEvidenceReadResponse.class);
     }
 
     /** Case B: POST /api/v1/recommendation/analyze-safe */
