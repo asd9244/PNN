@@ -20,7 +20,7 @@ public enum NutrientGroup {
             "철분|철염|철제제|철(을|이)?\\s*함유|철\\s*보충제|철\\s*ㆍ", null), // "철" 한 글자만으로는 찾지 않음 (철저, 철회 등)
     CALCIUM("칼슘",
             List.of("칼슘", "탄산칼슘", "구연산칼슘", "calcium"),
-            "칼슘", "칼슘\\s*(채널|통로|길항)|(저|고)\\s*칼슘\\s*(혈증|뇨증)|칼슘\\s*(농도|수치)"),
+            "칼슘", "칼슘\\s*(채널|통로|길항)|(저|고)\\s*칼슘\\s*(혈증|뇨증)|칼슘\\s*(농도|수치)|(혈중|혈청)\\s*칼슘|칼슘\\s*치(?!료)"), // 혈중·혈청 칼슘, 칼슘치 = 피 속 칼슘 수치 이야기
     MAGNESIUM("마그네슘",
             List.of("마그네슘", "산화마그네슘", "magnesium"),
             "마그네슘", "(저|고)\\s*마그네슘\\s*혈증|마그네슘\\s*(농도|수치)"),
@@ -80,6 +80,16 @@ public enum NutrientGroup {
 
     public String getLabel() {
         return label;
+    }
+
+    /** 화면용 이름(예: "철분")으로 성분 묶음을 찾는다. */
+    public static Optional<NutrientGroup> fromLabel(String label) {
+        for (NutrientGroup group : values()) {
+            if (group.label.equals(label)) {
+                return Optional.of(group);
+            }
+        }
+        return Optional.empty();
     }
 
     /**

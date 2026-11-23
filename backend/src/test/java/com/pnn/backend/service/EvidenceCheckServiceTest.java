@@ -143,6 +143,91 @@ class EvidenceCheckServiceTest {
     }
 
     @Test
+    @DisplayName("[고침 B] 성분 가까이에 '관찰되지 않았다'가 있는데 주의로 읽으면 원문만 + 안내 — 넬슨라베프라졸 문장")
+    void cautionNextToNoEffectCueBecomesSentenceOnly() {
+        String sentence = "5) 임상시험에서 제산제와 이 약 병용시 액제형 제산제와 상호작용이 관찰되지 않았다. 수산화알루미늄겔, 수산화마그네슘 함유 "
+                + "제산제와 이 약을 동시에 병용 투여한 경우와 제산제 투여 1시 간 후에 복용한 경우 평균 혈중농도곡선하면적이 각각 8 %, 6 % 감소하였다.";
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("마그네슘", "마그네슘", InteractionEvidenceResponseDto.Status.FOUND, sentence));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "마그네슘", "CAUTION", "수산화마그네슘 함유 제산제와 이 약을 동시에 병용 투여한 경우", "약 효과가 떨어질 수 있어요.", "제산제 투여 1시간 후에 복용")));
+
+        var finding = service.check(request(1L, "마그네슘")).getDrugs().get(0).getNutrients().get(0).getFindings().get(0);
+
+        assertThat(finding.getKind()).isEqualTo(Kind.UNVERIFIED); // 틀린 할 일("1시간 후")이 나가지 않음
+        assertThat(finding.getAction()).isNull();
+        assertThat(finding.getNote()).isEqualTo(EvidenceCheckService.NOTE_MIXED);
+    }
+
+    @Test
+    @DisplayName("[고침 B] 신호 말이 표의 다른 줄(성분에서 멀리)에 있으면 주의를 그대로 둔다 — 로수바스타틴 표")
+    void cueFarAwayDoesNotBlockCaution() {
+        String sentence = "에리스로마이신 500 mg 1일 4회, 7일간 80 mg, 단회 투여 유의한 차이 없음 바이칼린 50 mg 1일 3회, 14일간 20 mg, 단회 투여 "
+                + "47% 감소 기타 약물의 영향 - 제산제 : 수산화알루미늄, 수산화마그네슘을 함유하는 제산제와 로수바스타틴을 병용 투여한 결과, 로수바스타틴의 혈장 농도가 54% 감소하였다.";
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("마그네슘", "마그네슘", InteractionEvidenceResponseDto.Status.FOUND, sentence));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "마그네슘", "CAUTION", "제산제와 로수바스타틴을 병용 투여한 결과", "마그네슘 제산제는 약 농도를 낮춰요.", "")));
+
+        var magnesium = service.check(request(1L, "마그네슘")).getDrugs().get(0).getNutrients().get(0);
+
+        assertThat(magnesium.getStatus()).isEqualTo(Status.CAUTION);
+    }
+
+    @Test
+    @DisplayName("[고침 B] 원문에 '영향 없음' 신호가 없는데 영향 없음으로 읽으면 원문만 + 안내 (근거 없는 '괜찮다' 차단)")
+    void noEffectWithoutCueBecomesSentenceOnly() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("칼슘", "칼슘", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "칼슘", "NO_EFFECT", "칼슘 함유 제제와의 병용에 의해", "칼슘은 같이 먹어도 돼요.", "")));
+
+        var finding = service.check(request(1L, "칼슘")).getDrugs().get(0).getNutrients().get(0).getFindings().get(0);
+
+        assertThat(finding.getKind()).isEqualTo(Kind.UNVERIFIED);
+        assertThat(finding.getNote()).isEqualTo(EvidenceCheckService.NOTE_NO_EFFECT_UNCONFIRMED);
+    }
+
+    @Test
+    @DisplayName("[고침 B·C] 원문에 '안전하였다'가 있으면 영향 없음과 '안전' 표현을 그대로 둔다 — 브이포지알 문장")
+    void noEffectWithCueAndStrongWordInSentenceIsKept() {
+        String sentence = "④ 기타 : 암로디핀 단독투여시, 디곡 신, 와파린, 알루미늄/마그네슘(제산제), 시메티딘, 비스테로이드성 소염제, 사이클로스포린과 병용시 안전하였다.";
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("마그네슘", "마그네슘", InteractionEvidenceResponseDto.Status.FOUND, sentence));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "마그네슘", "NO_EFFECT", "사이클로스포린과 병용시 안전하였다", "함께 복용해도 안전했다고 적혀 있습니다.", "")));
+
+        var magnesium = service.check(request(1L, "마그네슘")).getDrugs().get(0).getNutrients().get(0);
+
+        assertThat(magnesium.getStatus()).isEqualTo(Status.NO_EFFECT);
+        assertThat(magnesium.getFindings().get(0).getNote()).isNull();
+    }
+
+    @Test
+    @DisplayName("[고침 C] 원문에 없는 강한 표현('크게')이 설명에 있으면 원문만 보여 준다 — 비엘아토르 사례")
+    void strongWordNotInSentenceIsDropped() {
+        givenDrugExists(1L);
+        givenEvidence(1L, nutrient("철", "철분", InteractionEvidenceResponseDto.Status.FOUND, IRON_CALCIUM));
+        when(aiServerClient.readEvidence(any())).thenReturn(aiAnswer(
+                result(1, "철분", "CAUTION", "흡수가 저하될 수 있으므로", "철분제는 약 흡수를 크게 줄여요.", "")));
+
+        var iron = service.check(request(1L, "철")).getDrugs().get(0).getNutrients().get(0);
+
+        assertThat(iron.getStatus()).isEqualTo(Status.UNVERIFIED);
+        assertThat(iron.getFindings().get(0).getExplanation()).isNull();
+    }
+
+    @Test
+    @DisplayName("[고침 B] PDF 줄바꿈으로 깨진 '영향 이 없었다'도 신호 말로 찾는다 — 비엘아토르 문장")
+    void findsCueWithBrokenSpacing() {
+        String sentence = "11) 제산제 : 이 약과 수산화마그네슘 그리고 수산화알루미늄을 함유하는 경구용 제산제(antacid) 현탁액과 병용투여시 "
+                + "아토르바스타틴 혈장농도가 약 35 % 정도 감소하였다. 그러나 LDL-콜레스테롤의 감소에는 영향 이 없었다.";
+
+        assertThat(EvidenceCheckService.noEffectCueNear(sentence, "마그네슘")).isTrue();
+        assertThat(EvidenceCheckService.noEffectCueNear(IRON_CALCIUM, "철분")).isFalse();
+    }
+
+    @Test
     @DisplayName("근거 구절 대조: 띄어쓰기 차이는 무시하고, 너무 짧거나 원문에 없는 구절은 거른다")
     void quoteMatching() {
         assertThat(EvidenceCheckService.quoteAppearsIn("저하될 수 있으므로", IRON_CALCIUM)).isTrue();
