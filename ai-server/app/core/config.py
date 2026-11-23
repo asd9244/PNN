@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     EVIDENCE_MODEL: str = "gemma4:e4b"
     # 안전 영양제 추천(/recommendation/analyze-safe)에 쓰는 로컬 모델 (Ollama)
     RECOMMENDATION_MODEL: str = "gemma4:e4b"
+    # 영양제 사진 OCR 결과를 '이름: 함량' 줄로 정리하는 로컬 모델 (Ollama, 생각 끔으로 호출)
+    OCR_REFINE_MODEL: str = "gemma4:e4b"
 
     class Config:
         env_file = str(_ENV_PATH) if _ENV_PATH.exists() else ".env"
