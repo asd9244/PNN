@@ -91,6 +91,7 @@ public class DrugDetailResponseDto {
         private String efficacy;       // 전문적인 효능효과 (drug_permit_detail)
         private String dosage;         // 용법용량 (drug_permit_detail)
         private String caution;        // 주의사항 원문 전체 (경고, 금기 등 통합 텍스트) (drug_permit_detail)
+        private String interactionSection; // 주의사항 중 "상호작용" 항목만 (InteractionSectionExtractor)
         private String storageMethod;  // 보관 및 취급상 주의/저장방법 (drug_permit_detail)
         private String validityPeriod; // 유효기간 (drug_permit_detail)
         private String packageUnit;    // 포장단위 (drug_permit_detail)
