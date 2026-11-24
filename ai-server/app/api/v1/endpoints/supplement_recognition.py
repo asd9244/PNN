@@ -22,6 +22,46 @@ OCR_MAX_TOKENS = 4096
 
 MODELS_DIR = r"C:\Users\jjong\Project_\PnN\pnn-project\ai-server\app\models"
 
+# 라벨의 아래 첨자 숫자(B₆, B₁₂, D₃)를 보통 숫자로 — 그대로 두면 상호작용 검사가 B6·B12로 알아보지 못함
+SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+# 함량: "1,000 mg"처럼 쉼표 있는 숫자도 한 덩어리로 + 바로 뒤 단위
+AMOUNT = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*([a-zA-Z%µμ]+)?")
+
+
+def _split_name_value(line: str):
+    """'이름: 함량' 줄을 이름과 함량 부분으로 나눔. 함량이 숫자로 시작하지 않으면 (None, None)
+    (예: 첨가물 줄 "Magnesium Stearate: <2%"는 1회 함량이 아니므로 뺌)."""
+    if ":" in line:
+        # 첫 ':' 앞이 이름 — 이름 속 숫자("riboflavin 5'-phosphate", "Vitamin B12")를 함량으로 읽지 않게
+        name, value = line.split(":", 1)
+    else:
+        # 정리 모델이 형식을 안 지킨 줄: 예전처럼 이름 뒤 첫 숫자부터 함량으로 봄
+        m = re.search(r"(.+?)\s+(\d.*)", line)
+        if not m:
+            return None, None
+        name, value = m.group(1), m.group(2)
+    name, value = name.strip(), value.strip()
+    if not name or not AMOUNT.match(value):
+        return None, None
+    return name, value
+
+
+def parse_nutrients(refined_text: str) -> list[dict]:
+    """정리 모델이 쓴 '이름: 함량' 줄들 → [{name, amount, unit}] (같은 이름은 하나만)."""
+    nutrition_data = {}
+    for line in refined_text.translate(SUBSCRIPT_DIGITS).split("\n"):
+        name, value = _split_name_value(line)
+        if name is None:
+            continue
+        m = AMOUNT.match(value)
+        nutrition_data[name] = {
+            "name": name,
+            "amount": float(m.group(1).replace(",", "")),  # 쉼표를 지우고 숫자로 (1,000 → 1000)
+            "unit": m.group(2) or "",
+        }
+    return list(nutrition_data.values())
+
+
 def encode_image(image_bytes: bytes):
     return base64.b64encode(image_bytes).decode('utf-8')
 
@@ -123,25 +163,8 @@ async def extract_nutrients(image: UploadFile = File(...)):
         except Exception as e:
             return {"error": f"정리 모델 호출 실패: {e}"}
 
-        # 5. [STEP 3] Python 정규식으로 JSON 변환
-        nutrition_data = {}
-        lines = refined_text.split('\n')
-        for line in lines:
-            match = re.search(r"([^:]+?)[:\s]+(\d[\d,]*(?:\.\d+)?\s*(?:mg|mcg|µg|μg|g|kcal|%|IU)?)", line, re.IGNORECASE)  # "1,000 mg"처럼 쉼표 있는 숫자도 한 덩어리로
-            if match:
-                key = match.group(1).strip()
-                value = match.group(2).strip()
-
-                amount_match = re.search(r"(\d[\d,]*(?:\.\d+)?)", value)
-                unit_match = re.search(r"([a-zA-Z%µμ]+)", value)
-
-                nutrition_data[key] = {
-                    "name": key,
-                    "amount": float(amount_match.group(1).replace(",", "")) if amount_match else None,  # 쉼표를 지우고 숫자로 (1,000 → 1000)
-                    "unit": unit_match.group(1) if unit_match else ""
-                }
-
-        nutrients = list(nutrition_data.values())
+        # 5. [STEP 3] '이름: 함량' 줄을 성분 목록(JSON)으로
+        nutrients = parse_nutrients(refined_text)
 
         return {
             "name": image.filename,
