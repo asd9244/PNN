@@ -29,27 +29,57 @@ if (Platform.OS === 'android') {
 
 type InteractionResultRouteProp = RouteProp<RootStackParamList, 'InteractionResult'>;
 
-/** 상태별 이름표·색. 위에서부터 더 주의가 필요한 순서 */
-const STATUS_VISUAL: Record<EvidenceStatus, { label: string; textColor: string; bgColor: string }> = {
-  CAUTION: { label: '주의', textColor: '#B91C1C', bgColor: '#FEF2F2' },
-  OTHER: { label: '기타 영향', textColor: '#B45309', bgColor: '#FFFBEB' },
-  UNVERIFIED: { label: '원문 확인 필요', textColor: '#1D4ED8', bgColor: '#EFF6FF' },
-  NO_EFFECT: { label: '영향 없음 (설명서)', textColor: '#047857', bgColor: '#ECFDF5' },
-  NOT_MENTIONED: { label: '설명서에 언급 없음', textColor: '#374151', bgColor: '#F3F4F6' },
-  NOT_IN_TABLE: { label: '검사 대상 아님', textColor: '#6B7280', bgColor: '#F3F4F6' },
-  NO_SECTION: { label: '설명서 확인 불가', textColor: '#6B7280', bgColor: '#F3F4F6' },
+/** 상태별 이름표·색 (short는 요약 숫자 줄에 쓰는 짧은 이름). 위에서부터 더 주의가 필요한 순서 */
+const STATUS_VISUAL: Record<EvidenceStatus, { label: string; short: string; textColor: string; bgColor: string }> = {
+  CAUTION: { label: '주의', short: '주의', textColor: '#B91C1C', bgColor: '#FEF2F2' },
+  OTHER: { label: '기타 영향', short: '기타 영향', textColor: '#B45309', bgColor: '#FFFBEB' },
+  UNVERIFIED: { label: '원문 확인 필요', short: '원문 확인 필요', textColor: '#1D4ED8', bgColor: '#EFF6FF' },
+  NO_EFFECT: { label: '영향 없음 (설명서)', short: '영향 없음', textColor: '#047857', bgColor: '#ECFDF5' },
+  NOT_MENTIONED: { label: '설명서에 언급 없음', short: '언급 없음', textColor: '#374151', bgColor: '#F3F4F6' },
+  NOT_IN_TABLE: { label: '검사 대상 아님', short: '검사 대상 아님', textColor: '#6B7280', bgColor: '#F3F4F6' },
+  NO_SECTION: { label: '설명서 확인 불가', short: '설명서 확인 불가', textColor: '#6B7280', bgColor: '#F3F4F6' },
 };
 const STATUS_ORDER: EvidenceStatus[] = [
   'CAUTION', 'OTHER', 'UNVERIFIED', 'NO_EFFECT', 'NOT_MENTIONED', 'NO_SECTION', 'NOT_IN_TABLE',
 ];
 
-/** 설명서 근거가 없는 상태일 때 보여 줄 안내 */
-const NO_FINDING_MESSAGE: Partial<Record<EvidenceStatus, string>> = {
-  NOT_MENTIONED:
-    '이 약의 설명서 상호작용 항목에는 이 성분 이야기가 없어요. 언급이 없다고 안전하다는 뜻은 아니니, 복용 전 의사·약사와 상의하세요.',
-  NOT_IN_TABLE: '이 성분은 아직 검사 대상에 들어 있지 않아요.',
-  NO_SECTION: '설명서에서 상호작용 항목을 찾지 못했어요. 복용 전 의사·약사와 상의하세요.',
-};
+/** 설명서 근거 문장이 있는 상태 → 성분마다 카드 1장 */
+const EVIDENCE_STATUSES: EvidenceStatus[] = ['CAUTION', 'OTHER', 'UNVERIFIED', 'NO_EFFECT'];
+
+/** 근거 문장이 없는 상태 → 약마다 카드 1장으로 묶고, 안내 문장은 한 번만 */
+const GROUPED: { status: EvidenceStatus; note: string; collapsedByDefault: boolean }[] = [
+  {
+    status: 'NOT_MENTIONED',
+    note: '설명서 상호작용 항목에 이 성분들 이야기는 없어요. 언급이 없다고 안전하다는 뜻은 아니니, 복용 전 의사·약사와 상의하세요.',
+    collapsedByDefault: false,
+  },
+  {
+    status: 'NO_SECTION',
+    note: '설명서에서 상호작용 항목을 찾지 못했어요. 복용 전 의사·약사와 상의하세요.',
+    collapsedByDefault: false,
+  },
+  {
+    status: 'NOT_IN_TABLE',
+    note: '아직 검사 대상에 들어 있지 않은 성분이에요.',
+    collapsedByDefault: true,
+  },
+];
+
+/** 화면에 보일 짧은 이름: 대응표 성분명(예: "비타민 A"), 없으면 괄호 앞(예: "Biotin (as …)" → "Biotin") */
+function shortName(nutrient: EvidenceNutrientResult): string {
+  return nutrient.matchedGroup ?? (nutrient.nutrient.split('(')[0].trim() || nutrient.nutrient);
+}
+
+/** 같은 성분이 다른 이름으로 두 번 들어오면(예: "Calcium", "Calcium (as …)") 하나만 남김 */
+function uniqueByName(nutrients: EvidenceNutrientResult[]): EvidenceNutrientResult[] {
+  const seen = new Set<string>();
+  return nutrients.filter((n) => {
+    const key = `${n.status}|${shortName(n)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function worstStatus(nutrients: EvidenceNutrientResult[]): EvidenceStatus {
   return STATUS_ORDER.find((s) => nutrients.some((n) => n.status === s)) ?? 'NOT_MENTIONED';
@@ -90,26 +120,67 @@ function FindingBlock({ finding }: { finding: EvidenceFinding }) {
   );
 }
 
+/** 근거 문장이 있는 성분 하나 */
 function NutrientCard({ nutrient }: { nutrient: EvidenceNutrientResult }) {
   const visual = STATUS_VISUAL[nutrient.status];
-  const showGroup = nutrient.matchedGroup && nutrient.matchedGroup !== nutrient.nutrient;
   return (
     <View style={[styles.itemCard, { backgroundColor: visual.bgColor }]}>
       <Text style={[styles.itemLevelLabel, { color: visual.textColor }]}>{visual.label}</Text>
-      <Text style={[styles.itemPairTitle, { color: visual.textColor }]}>
-        {showGroup ? `${nutrient.nutrient} (${nutrient.matchedGroup})` : nutrient.nutrient}
-      </Text>
-      {nutrient.findings.length === 0 ? (
-        <Text style={styles.itemDescription}>{NO_FINDING_MESSAGE[nutrient.status] ?? ''}</Text>
-      ) : (
-        nutrient.findings.map((finding, index) => <FindingBlock key={index} finding={finding} />)
-      )}
+      <Text style={[styles.itemPairTitle, { color: visual.textColor }]}>{shortName(nutrient)}</Text>
+      {nutrient.findings.map((finding, index) => <FindingBlock key={index} finding={finding} />)}
     </View>
   );
 }
 
+/** 근거 문장이 없는 성분들을 한 장으로: 이름만 나열 + 안내 한 번. onToggle이 있으면 접고 펼칠 수 있음 */
+function GroupCard({
+  status,
+  nutrients,
+  note,
+  expanded,
+  onToggle,
+}: {
+  status: EvidenceStatus;
+  nutrients: EvidenceNutrientResult[];
+  note: string;
+  expanded: boolean;
+  onToggle?: () => void;
+}) {
+  const visual = STATUS_VISUAL[status];
+  return (
+    <View style={[styles.itemCard, { backgroundColor: visual.bgColor }]}>
+      <TouchableOpacity
+        onPress={onToggle}
+        disabled={!onToggle}
+        activeOpacity={0.8}
+        style={styles.groupCardHeader}
+      >
+        <Text style={[styles.groupCardTitle, { color: visual.textColor }]}>
+          {visual.label} ({nutrients.length}개)
+        </Text>
+        {onToggle ? <Text style={styles.chevron}>{expanded ? '▲ 접기' : '▼ 펼치기'}</Text> : null}
+      </TouchableOpacity>
+      {expanded ? (
+        <>
+          <Text style={styles.nameListText}>{nutrients.map(shortName).join(' · ')}</Text>
+          <Text style={styles.groupNote}>ⓘ {note}</Text>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** 요약 숫자 줄 (예: "주의 2 · 언급 없음 15 · 검사 대상 아님 8") */
+function countsText(drugs: EvidenceDrugResult[]): string {
+  const all = drugs.flatMap((d) => uniqueByName(d.nutrients));
+  return STATUS_ORDER.map((s) => ({ s, count: all.filter((n) => n.status === s).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ s, count }) => `${STATUS_VISUAL[s].short} ${count}`)
+    .join(' · ');
+}
+
 function summaryText(drugs: EvidenceDrugResult[]): string {
-  const all = drugs.flatMap((d) => d.nutrients);
+  const all = drugs.flatMap((d) => uniqueByName(d.nutrients));
   const count = (s: EvidenceStatus) => all.filter((n) => n.status === s).length;
   const caution = count('CAUTION') + count('OTHER');
   const check = count('UNVERIFIED');
@@ -127,11 +198,17 @@ export default function InteractionResultScreen() {
   const drugs = route.params?.result?.drugs ?? [];
   const bottomInset = useEffectiveBottomInset();
 
-  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({}); // 기본은 펼침
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({}); // 약 묶음: 기본은 펼침
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({}); // "약id-상태" 묶음 카드를 사용자가 펼쳤는지
 
   const toggleGroup = (drugId: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCollapsed((prev) => ({ ...prev, [drugId]: !prev[drugId] }));
+  };
+
+  const toggleGroupCard = (key: string, current: boolean) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setGroupOpen((prev) => ({ ...prev, [key]: !current }));
   };
 
   return (
@@ -144,12 +221,15 @@ export default function InteractionResultScreen() {
 
         <View style={styles.summaryCard}>
           <Text style={styles.summaryCardTitle}>분석 결과 요약</Text>
+          <Text style={styles.summaryCounts}>{countsText(drugs)}</Text>
           <Text>{summaryText(drugs)}</Text>
         </View>
 
         {drugs.map((drug) => {
           const isExpanded = !collapsed[drug.drugId];
           const headerInfo = STATUS_VISUAL[worstStatus(drug.nutrients)];
+          const nutrients = uniqueByName(drug.nutrients);
+          const evidence = sortBySeverity(nutrients.filter((n) => EVIDENCE_STATUSES.includes(n.status)));
 
           return (
             <View key={drug.drugId} style={styles.groupBlock}>
@@ -168,17 +248,30 @@ export default function InteractionResultScreen() {
                     {drug.drugName}
                   </Text>
                 </View>
-                <View style={styles.groupHeaderRight}>
-                  <Text style={styles.countText}>{drug.nutrients.length}개 성분</Text>
-                  <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
-                </View>
+                <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
               </TouchableOpacity>
 
               {isExpanded && (
                 <View style={styles.expandedBlock}>
-                  {sortBySeverity(drug.nutrients).map((nutrient) => (
+                  {evidence.map((nutrient) => (
                     <NutrientCard key={`${drug.drugId}-${nutrient.nutrient}`} nutrient={nutrient} />
                   ))}
+                  {GROUPED.map(({ status, note, collapsedByDefault }) => {
+                    const members = nutrients.filter((n) => n.status === status);
+                    if (members.length === 0) return null;
+                    const key = `${drug.drugId}-${status}`;
+                    const open = groupOpen[key] ?? !collapsedByDefault;
+                    return (
+                      <GroupCard
+                        key={key}
+                        status={status}
+                        nutrients={members}
+                        note={note}
+                        expanded={open}
+                        onToggle={collapsedByDefault ? () => toggleGroupCard(key, open) : undefined}
+                      />
+                    );
+                  })}
                 </View>
               )}
             </View>

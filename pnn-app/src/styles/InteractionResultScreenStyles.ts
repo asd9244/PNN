@@ -25,6 +25,11 @@ export const interactionResultScreenStyles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
+  summaryCounts: {
+    color: '#374151',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
   groupBlock: {
     marginBottom: 16,
   },
@@ -62,15 +67,6 @@ export const interactionResultScreenStyles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     flexShrink: 1,
-  },
-  groupHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  countText: {
-    color: '#6B7280',
-    marginRight: 8,
-    fontSize: 13,
   },
   chevron: {
     color: '#9CA3AF',
@@ -139,6 +135,27 @@ export const interactionResultScreenStyles = StyleSheet.create({
     color: '#374151',
     fontSize: 13,
     lineHeight: 19,
+  },
+  groupCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  groupCardTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  nameListText: {
+    color: '#111827',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
+  },
+  groupNote: {
+    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
   },
   disclaimer: {
     color: '#6B7280',
