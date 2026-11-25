@@ -19,7 +19,7 @@ alwaysApply: false
 | ORM | Spring Data JPA + Hibernate |
 | 동적 검색 | QueryDSL (`JPAQueryFactory`, `*RepositoryImpl`) |
 | DB | PostgreSQL (기본 DB명 예: `pnn-db`) |
-| 인증 | Spring Security 최소 설정(엔드포인트 허용). **회원·JWT·User 엔티티는 범위 제외·제거됨** (`docs/pnn-project-plan.md` §1.4) |
+| 인증 | Spring Security 최소 설정(엔드포인트 허용). **회원·JWT·User 엔티티는 범위 제외·제거됨** (`docs/project-plan-v2.md` ③) |
 
 ## 공공데이터 적재 (배치)
 

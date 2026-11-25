@@ -26,7 +26,7 @@ PostgreSQL (정형 데이터; JSONB·pgvector는 스키마 확장 시)
 
 | 레이어 | 역할 |
 |--------|------|
-| **Spring Boot** | 유일한 클라이언트 진입점. 처방약 검색·낱알식별·상세, Case A/B Python 호출 오케스트레이션, 응답 조합, DB 트랜잭션. **회원·JWT·서버 측 사용자 인증은 범위 제외** (`docs/pnn-project-plan.md` §1.4) |
+| **Spring Boot** | 유일한 클라이언트 진입점. 처방약 검색·낱알식별·상세, Case A/B Python 호출 오케스트레이션, 응답 조합, DB 트랜잭션. **회원·JWT·서버 측 사용자 인증은 범위 제외** (`docs/project-plan-v2.md` ③) |
 | **Python AI Server** | OCR·Case A/B LLM(Gemini 등). Spring에서만 호출(내부망) |
 | **PostgreSQL** | 정형 데이터(의약품 마스터·DUR 등). Spring이 JPA로 주도, Python은 읽기·배치 적재 |
 
