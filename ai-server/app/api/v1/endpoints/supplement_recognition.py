@@ -7,6 +7,7 @@ import urllib.request
 from urllib.error import URLError
 import time
 import subprocess
+import threading
 
 from app.core.config import settings
 from app.services.ollama_llm_service import chat
@@ -21,6 +22,9 @@ REFINE_OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 2048}
 OCR_MAX_TOKENS = 4096
 
 MODELS_DIR = r"C:\Users\jjong\Project_\PnN\pnn-project\ai-server\app\models"
+
+# 사진 여러 장이 동시에 와도 OCR 서버는 한 번만 켜지게 (켜는 동안 다른 요청은 기다렸다가 켜진 서버를 씀)
+_OCR_START_LOCK = threading.Lock()
 
 # 라벨의 아래 첨자 숫자(B₆, B₁₂, D₃)를 보통 숫자로 — 그대로 두면 상호작용 검사가 B6·B12로 알아보지 못함
 SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
@@ -73,38 +77,41 @@ def is_server_running(url="http://127.0.0.1:8090/health"):
         return False
 
 def start_paddleocr_server():
-    if is_server_running():
-        return None
-    
-    print("▶️ PaddleOCR 서버 시작 중...")
-    llama_exec = os.path.join(MODELS_DIR, "llama-server.exe")
-    server_command = [
-        llama_exec,
-        "-m", "PaddleOCR-VL-1.5.gguf",
-        "--mmproj", "PaddleOCR-VL-1.5-mmproj.gguf",
-        "-ngl", "99",
-        "--port", "8090"
-    ]
-    process = subprocess.Popen(
-        server_command,
-        cwd=MODELS_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    
-    # 서버 준비 대기
-    start_time = time.time()
-    while time.time() - start_time < 60:
+    with _OCR_START_LOCK:
         if is_server_running():
-            print("✅ PaddleOCR 서버 준비 완료")
-            return process
-        time.sleep(1)
-        
-    process.terminate()
-    raise Exception("PaddleOCR 서버 시동 시간 초과")
+            return None
 
+        print("▶️ PaddleOCR 서버 시작 중...")
+        llama_exec = os.path.join(MODELS_DIR, "llama-server.exe")
+        server_command = [
+            llama_exec,
+            "-m", "PaddleOCR-VL-1.5.gguf",
+            "--mmproj", "PaddleOCR-VL-1.5-mmproj.gguf",
+            "-ngl", "99",
+            "--port", "8090"
+        ]
+        process = subprocess.Popen(
+            server_command,
+            cwd=MODELS_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+        # 서버 준비 대기
+        start_time = time.time()
+        while time.time() - start_time < 60:
+            if is_server_running():
+                print("✅ PaddleOCR 서버 준비 완료")
+                return process
+            time.sleep(1)
+
+        process.terminate()
+        raise Exception("PaddleOCR 서버 시동 시간 초과")
+
+# async def가 아닌 def: FastAPI가 따로 돌려서, OCR·정리 모델을 기다리는 동안에도 서버가 다른 요청의 결과를 돌려줄 수 있음
+# (async def 안에서 이렇게 기다리면 그동안 서버 전체가 멈춤)
 @router.post("/extract")
-async def extract_nutrients(image: UploadFile = File(...)):
+def extract_nutrients(image: UploadFile = File(...)):
     # 1. 서버 실행 확인 및 자동 시작
     paddle_process = None
     try:
@@ -112,7 +119,7 @@ async def extract_nutrients(image: UploadFile = File(...)):
             paddle_process = start_paddleocr_server()
             
         # 2. 이미지 읽기 및 인코딩
-        image_bytes = await image.read()
+        image_bytes = image.file.read()
         base64_image = encode_image(image_bytes)
 
         # 3. [STEP 1] PaddleOCR 텍스트 스캔
