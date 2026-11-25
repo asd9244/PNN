@@ -29,6 +29,7 @@ backend/src/main/resources/application-secret.properties
 !backend/**/*.json
 !frontend/**/*.json
 !ai-server/**/*.json
+!docs/eval/**/*.json
 # data/ 하위의 모든 데이터 파일들 명시적 무시
 data/**/*.csv
 data/**/*.json
